@@ -1,8 +1,14 @@
 import { Status } from "@/app/types";
 
 export function StatusBadge({ status }: { status: Status }) {
+  const isActive = status === "activo";
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ${status === "activo" ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-[#3E4850]/10 text-text-muted"}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+        isActive ? "bg-primary/10 text-primary" : "bg-text-muted/10 text-text-muted"
+      }`}
+    >
+      <span className={`size-1.5 rounded-full ${isActive ? "bg-primary" : "bg-text-muted"}`} />
       {status}
     </span>
   );
