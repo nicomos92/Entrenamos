@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const DEFAULT_PRIMARY = "#16A34A";
-const DEFAULT_SECONDARY = "#22C55E";
+const DEFAULT_PRIMARY = "#1A365D";
+const DEFAULT_SECONDARY = "#8B1A2B";
 const HEX_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 export function BrandColorPicker({
@@ -109,7 +109,7 @@ export function BrandColorPicker({
 
       {status === "done" && <p className="text-sm font-bold text-primary">Colores actualizados.</p>}
       {status === "error" && (
-        <p className="text-sm font-bold text-[#DC2626]">
+        <p className="text-sm font-bold text-status-urgent">
           No se pudieron guardar los colores{errorMessage ? `: ${errorMessage}` : ". Intentá de nuevo."}
         </p>
       )}

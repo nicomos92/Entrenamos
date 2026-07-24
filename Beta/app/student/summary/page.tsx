@@ -28,7 +28,7 @@ export default async function StudentSummaryPage({
             </Link>
           }
           description="Cuando termines tu primera rutina, el resumen va a aparecer acá."
-          icon={ClipboardList}
+          icon={<ClipboardList size={26} strokeWidth={2.25} />}
           title="Todavía no registraste entrenamientos"
         />
       </section>
@@ -40,7 +40,7 @@ export default async function StudentSummaryPage({
   return (
     <section className="space-y-6 text-center">
       <div className="mx-auto">
-        <IconBadge icon={isComplete ? CheckCircle2 : RotateCcw} size="lg" />
+        {isComplete ? <IconBadge icon={<CheckCircle2 size={26} strokeWidth={2.25} />} size="lg" /> : <IconBadge icon={<RotateCcw size={26} strokeWidth={2.25} />} size="lg" />}
       </div>
       <div>
         <h1 className="text-4xl font-bold text-primary">{isComplete ? "¡Entrenamiento completado!" : "Rutina incompleta"}</h1>
@@ -51,10 +51,10 @@ export default async function StudentSummaryPage({
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-left">
-        <Metric icon={Timer} label="Tiempo total" value={`${session.elapsed_minutes ?? "-"} min`} />
-        <Metric icon={ListChecks} label="Ejercicios" value={`${session.completedExercises}/${session.totalExercises}`} />
+        <Metric icon={<Timer size={16} strokeWidth={2.25} />} label="Tiempo total" value={`${session.elapsed_minutes ?? "-"} min`} />
+        <Metric icon={<ListChecks size={16} strokeWidth={2.25} />} label="Ejercicios" value={`${session.completedExercises}/${session.totalExercises}`} />
       </div>
-      <Metric icon={Gauge} label="Feedback de esfuerzo" value={`Esfuerzo: ${session.effort ?? "-"}/5`} />
+      <Metric icon={<Gauge size={16} strokeWidth={2.25} />} label="Feedback de esfuerzo" value={`Esfuerzo: ${session.effort ?? "-"}/5`} />
 
       <SummaryNoteEditor initialNote={session.coach_note} sessionId={session.id} />
 

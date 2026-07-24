@@ -9,7 +9,7 @@ export default async function TrainerSettingsPage() {
 
   return (
     <section className="space-y-5">
-      <SectionHeader eyebrow="Tu marca" icon={Settings2} title="Configuración" />
+      <SectionHeader eyebrow="Tu marca" icon={<Settings2 size={20} strokeWidth={2.25} />} title="Configuración" />
 
       <article className="glass-card rounded-[2rem] p-6">
         <p className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import type { FormState } from "@/lib/types/form";
 import { emptyFormState } from "@/lib/types/form";
 
@@ -11,6 +12,7 @@ interface Field {
   placeholder?: string;
   defaultValue?: string;
   required?: boolean;
+  options?: { value: string; label: string }[];
 }
 
 interface ActionFormProps {
@@ -41,6 +43,25 @@ export function ActionForm({ action, fields, submitLabel, extraFields }: ActionF
               name={field.name}
               placeholder={field.placeholder}
             />
+          ) : field.type === "select" && field.options ? (
+            <select
+              className="field-input rounded-3xl"
+              defaultValue={field.defaultValue ?? ""}
+              name={field.name}
+              required={field.required ?? true}
+            >
+              <option value="" disabled>{field.placeholder ?? "Seleccionar..."}</option>
+              {field.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          ) : field.type === "file" ? (
+            <input
+              accept={field.placeholder}
+              className="field-input rounded-3xl file:cursor-pointer file:border-0 file:bg-transparent file:p-0 file:text-sm file:font-bold file:text-primary"
+              name={field.name}
+              type="file"
+            />
           ) : (
             <input
               className="field-input rounded-3xl"
@@ -55,7 +76,17 @@ export function ActionForm({ action, fields, submitLabel, extraFields }: ActionF
       ))}
 
       {state.error && (
-        <p className="rounded-2xl bg-status-urgent/10 px-4 py-3 text-sm font-bold text-status-urgent">{state.error}</p>
+        <p className="flex items-center gap-2 rounded-2xl bg-status-urgent/10 px-4 py-3 text-sm font-bold text-status-urgent">
+          <AlertCircle size={16} strokeWidth={2.5} className="shrink-0" />
+          {state.error}
+        </p>
+      )}
+
+      {state.success && state.message && (
+        <p className="flex items-center gap-2 rounded-2xl bg-status-active/10 px-4 py-3 text-sm font-bold text-status-active">
+          <CheckCircle2 size={16} strokeWidth={2.5} className="shrink-0" />
+          {state.message}
+        </p>
       )}
 
       <button className="premium-button w-full" disabled={pending} type="submit">

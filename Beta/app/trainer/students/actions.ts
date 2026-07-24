@@ -11,6 +11,10 @@ export async function createStudent(_prevState: FormState, formData: FormData): 
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const note = String(formData.get("note") ?? "").trim();
+  const objetivo = String(formData.get("objetivo") ?? "").trim() || null;
+  const fechaInicio = String(formData.get("fecha_inicio") ?? "").trim() || null;
+  const fechaNacimiento = String(formData.get("fecha_nacimiento") ?? "").trim() || null;
+  const sexo = String(formData.get("sexo") ?? "").trim() || null;
 
   if (!fullName || !email || !password) {
     return { error: "Completa nombre, email y contraseña." };
@@ -41,16 +45,66 @@ export async function createStudent(_prevState: FormState, formData: FormData): 
     profile_id: created.user.id,
     trainer_id: user.id,
     note,
+    objetivo,
+    fecha_inicio: fechaInicio,
+    fecha_nacimiento: fechaNacimiento,
+    sexo,
   });
 
   if (insertError) {
-    // Cleanup: delete the orphaned auth user and profile
     await admin.auth.admin.deleteUser(created.user.id);
     return { error: "El usuario se creó pero no se pudo vincular como alumno. Por favor, reintentá." };
   }
 
   revalidatePath("/trainer/students");
   redirect("/trainer/students");
+}
+
+export async function updateStudentProfile(
+  studentId: string,
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const objetivo = String(formData.get("objetivo") ?? "").trim() || null;
+  const fechaInicio = String(formData.get("fecha_inicio") ?? "").trim() || null;
+  const fechaNacimiento = String(formData.get("fecha_nacimiento") ?? "").trim() || null;
+  const sexo = String(formData.get("sexo") ?? "").trim() || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("students")
+    .update({ objetivo, fecha_inicio: fechaInicio, fecha_nacimiento: fechaNacimiento, sexo })
+    .eq("profile_id", studentId);
+
+  if (error) return { error: "No se pudieron guardar los cambios." };
+
+  revalidatePath(`/trainer/students/${studentId}`);
+  revalidatePath("/trainer/students");
+  return { error: null };
+}
+
+export async function saveStudentSchedules(
+  studentId: string,
+  schedules: { dia_semana: number; hora: string }[]
+) {
+  const supabase = await createClient();
+
+  await supabase.from("student_schedules").delete().eq("student_id", studentId);
+
+  if (schedules.length > 0) {
+    const { error } = await supabase.from("student_schedules").insert(
+      schedules.map((s) => ({
+        student_id: studentId,
+        dia_semana: s.dia_semana,
+        hora: s.hora,
+      }))
+    );
+
+    if (error) return;
+  }
+
+  revalidatePath(`/trainer/students/${studentId}`);
+  revalidatePath("/trainer/students");
 }
 
 export async function updateStudentNote(studentId: string, note: string) {

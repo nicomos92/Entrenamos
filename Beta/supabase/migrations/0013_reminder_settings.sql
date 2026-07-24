@@ -1,0 +1,3 @@
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS email_for_reminders TEXT,
+ADD COLUMN IF NOT EXISTS reminder_lead_minutes INTEGER NOT NULL DEFAULT 60;

@@ -1,9 +1,9 @@
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 const SIZES = {
-  sm: { box: "size-9", icon: 16 },
-  md: { box: "size-11", icon: 20 },
-  lg: { box: "size-14", icon: 26 },
+  sm: "size-9",
+  md: "size-11",
+  lg: "size-14",
 } as const;
 
 const TONES = {
@@ -14,18 +14,17 @@ const TONES = {
 } as const;
 
 export function IconBadge({
-  icon: Icon,
+  icon,
   size = "md",
   tone = "soft",
 }: {
-  icon: LucideIcon;
+  icon: ReactNode;
   size?: keyof typeof SIZES;
   tone?: keyof typeof TONES;
 }) {
-  const { box, icon } = SIZES[size];
   return (
-    <div className={`grid ${box} shrink-0 place-items-center rounded-2xl ${TONES[tone]}`}>
-      <Icon size={icon} strokeWidth={2.25} />
+    <div className={`grid ${SIZES[size]} shrink-0 place-items-center rounded-2xl ${TONES[tone]}`}>
+      {icon}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default async function TrainerStudentsPage() {
           </Link>
         }
         eyebrow="Gestión de alumnos"
-        icon={Users}
+        icon={<Users size={20} strokeWidth={2.25} />}
         title="Alumnos"
       />
 

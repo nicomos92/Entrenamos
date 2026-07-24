@@ -13,7 +13,7 @@ export default function NewRoutinePage() {
           Rutinas
         </Link>
         <div className="mt-3 flex items-center gap-3">
-          <IconBadge icon={ClipboardList} />
+          <IconBadge icon={<ClipboardList size={20} strokeWidth={2.25} />} />
           <h1 className="text-3xl font-bold text-text-primary">Nueva rutina</h1>
         </div>
         <p className="mt-2 text-text-muted">Después de crearla vas a poder sumarle ejercicios de tu biblioteca.</p>

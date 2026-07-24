@@ -29,28 +29,29 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
           Ejercicios
         </Link>
         <div className="mt-3 flex items-center gap-3">
-          <IconBadge icon={Pencil} />
+          <IconBadge icon={<Pencil size={20} strokeWidth={2.25} />} />
           <h1 className="text-3xl font-bold text-text-primary">Editar ejercicio</h1>
         </div>
       </div>
 
       <div className="glass-card rounded-[2rem] p-6">
+        {exercise.image_url && (
+          <div className="mb-4 overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt={exercise.name} className="w-full object-cover" src={exercise.image_url} />
+          </div>
+        )}
+
         <ActionForm
           action={boundUpdate}
           submitLabel="Guardar cambios"
           fields={[
             { name: "name", label: "Nombre", type: "text", defaultValue: exercise.name },
-            { name: "focus", label: "Foco", type: "text", defaultValue: exercise.focus, required: false },
-            { name: "sets", label: "Series", type: "number", defaultValue: String(exercise.default_sets) },
-            {
-              name: "reps",
-              label: "Repeticiones",
-              type: "number",
-              defaultValue: exercise.default_reps != null ? String(exercise.default_reps) : "",
-              required: false,
-            },
-            { name: "time", label: "Tiempo", type: "text", defaultValue: exercise.default_time ?? "", required: false },
-            { name: "rest", label: "Descanso (segundos)", type: "number", defaultValue: String(exercise.default_rest) },
+            { name: "description", label: "Descripción", type: "textarea", required: false, defaultValue: exercise.description ?? "" },
+            { name: "focus", label: "Grupo / Foco", type: "text", defaultValue: exercise.focus, required: false },
+            { name: "image", label: "Cambiar imagen", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
+            { name: "image_url", label: "O URL de imagen", type: "text", defaultValue: exercise.image_url ?? "", required: false },
+            { name: "video_url", label: "URL de video demostrativo", type: "text", defaultValue: exercise.video_url ?? "", required: false },
           ]}
         />
       </div>

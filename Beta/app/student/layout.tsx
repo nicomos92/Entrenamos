@@ -1,16 +1,17 @@
 import type { CSSProperties } from "react";
-import { Home, Dumbbell, BarChart3, User } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { TopBar } from "@/app/components/TopBar";
 import { SectionNav, type NavItem } from "@/app/components/SectionNav";
 import { Sidebar } from "@/app/components/Sidebar";
 import { brandCssVars } from "@/lib/color";
+import { NotificationBell } from "@/app/components/shared/NotificationBell";
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/student", label: "Hoy", icon: Home },
-  { href: "/student/workout", label: "Rutina", icon: Dumbbell },
-  { href: "/student/summary", label: "Resumen", icon: BarChart3 },
-  { href: "/student/profile", label: "Perfil", icon: User },
+  { href: "/student", label: "Hoy", icon: "Home" },
+  { href: "/student/workout", label: "Rutina", icon: "Dumbbell" },
+  { href: "/student/agenda", label: "Agenda", icon: "CalendarDays" },
+  { href: "/student/summary", label: "Resumen", icon: "BarChart3" },
+  { href: "/student/profile", label: "Perfil", icon: "User" },
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
@@ -47,8 +48,13 @@ export default async function StudentLayout({ children }: { children: React.Reac
     >
       <Sidebar items={NAV_ITEMS} logoUrl={trainerLogoUrl} name={profile.full_name} subtitle={subtitle} />
       <main className="min-w-0 flex-1 lg:py-2">
-        <TopBar logoUrl={trainerLogoUrl} name={profile.full_name} subtitle={subtitle} />
-        {children}
+        <div className="flex items-start justify-between">
+          <TopBar logoUrl={trainerLogoUrl} name={profile.full_name} subtitle={subtitle} />
+          <div className="hidden lg:block">
+            <NotificationBell userId={user.id} />
+          </div>
+        </div>
+        <div className="animate-in">{children}</div>
       </main>
       <SectionNav items={NAV_ITEMS} />
     </div>

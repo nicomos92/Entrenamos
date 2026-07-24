@@ -23,7 +23,7 @@ export default async function StudentWorkoutPage() {
               ? "Tu rutina asignada todavía no tiene ejercicios cargados."
               : "Tu entrenador todavía no te asignó una rutina."
           }
-          icon={ListX}
+          icon={<ListX size={26} strokeWidth={2.25} />}
           title="Sin rutina para entrenar"
         />
       </section>

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 interface FinishSessionInput {
@@ -39,13 +40,18 @@ export async function finishSession(input: FinishSessionInput) {
   }
 
   if (input.completedExerciseIds.length > 0) {
-    await supabase.from("session_exercises").insert(
+    const { error: exercisesError } = await supabase.from("session_exercises").insert(
       input.completedExerciseIds.map((exerciseId) => ({
         session_id: session.id,
         exercise_id: exerciseId,
         completed: true,
       }))
     );
+
+    if (exercisesError) {
+      await supabase.from("sessions").delete().eq("id", session.id);
+      redirect("/student/workout");
+    }
   }
 
   redirect(`/student/summary?session=${session.id}`);
@@ -54,4 +60,5 @@ export async function finishSession(input: FinishSessionInput) {
 export async function updateSessionNote(sessionId: string, note: string) {
   const supabase = await createClient();
   await supabase.from("sessions").update({ coach_note: note }).eq("id", sessionId);
+  revalidatePath(`/student/summary`);
 }

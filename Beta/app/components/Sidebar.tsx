@@ -20,15 +20,22 @@ export function Sidebar({ name, subtitle, logoUrl, items }: SidebarProps) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between py-8 lg:flex">
       <div>
-        <p className="text-2xl font-black tracking-tight text-primary">EntrenaMOS</p>
-        <p className="mt-1 text-xs font-bold uppercase tracking-[0.24em] text-text-muted">{subtitle}</p>
-        <div className="mt-8">
+        <div className="flex items-center gap-3 px-3">
+          <div className="grid size-10 place-items-center rounded-xl bg-soft text-sm font-black text-primary shadow-soft">
+            EN
+          </div>
+          <div>
+            <p className="text-lg font-black tracking-tight text-primary">EntrenaMOS</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-text-muted">{subtitle}</p>
+          </div>
+        </div>
+        <div className="mt-8 border-t border-white/20 pt-4">
           <SectionNav items={items} variant="sidebar" />
         </div>
       </div>
 
-      <div className="flex items-center gap-3 rounded-2xl bg-white/40 p-3 shadow-soft">
-        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/60 text-xs font-black text-primary">
+      <div className="flex items-center gap-3 rounded-2xl bg-white/40 p-3 shadow-soft ring-1 ring-white/30">
+        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/60 text-xs font-black text-primary ring-1 ring-white/40">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="" className="size-full object-cover" src={logoUrl} />
@@ -42,7 +49,7 @@ export function Sidebar({ name, subtitle, logoUrl, items }: SidebarProps) {
         <form action={logout}>
           <button
             aria-label="Cerrar sesión"
-            className="grid size-9 shrink-0 place-items-center rounded-full border border-white/50 bg-white/50 text-text-muted transition hover:text-status-urgent"
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-white/50 bg-white/50 text-text-muted transition-all duration-200 hover:bg-status-urgent/10 hover:text-status-urgent"
             type="submit"
           >
             <LogOut size={16} strokeWidth={2.25} />

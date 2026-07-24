@@ -16,9 +16,9 @@ export function TopBar({ name, subtitle, logoUrl }: TopBarProps) {
     .toUpperCase();
 
   return (
-    <header className="mb-6 flex items-center justify-between lg:hidden">
+    <header className="mb-5 flex items-center justify-between lg:hidden">
       <div className="flex items-center gap-3">
-        <div className="grid size-12 place-items-center overflow-hidden rounded-full bg-white/60 text-sm font-black text-primary shadow-lift">
+        <div className="grid size-11 place-items-center overflow-hidden rounded-xl bg-soft text-sm font-black text-primary shadow-soft">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="" className="size-full object-cover" src={logoUrl} />
@@ -27,14 +27,14 @@ export function TopBar({ name, subtitle, logoUrl }: TopBarProps) {
           )}
         </div>
         <div>
-          <p className="font-bold text-text-primary">{name}</p>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-text-muted">{subtitle}</p>
+          <p className="text-sm font-bold text-text-primary">{name}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-text-muted">{subtitle}</p>
         </div>
       </div>
       <form action={logout}>
         <button
           aria-label="Cerrar sesión"
-          className="grid size-11 place-items-center rounded-full border border-white/50 bg-white/50 text-text-muted transition hover:text-status-urgent"
+          className="grid size-11 place-items-center rounded-xl border border-white/50 bg-white/50 text-text-muted transition-all duration-200 hover:bg-status-urgent/10 hover:text-status-urgent"
           type="submit"
         >
           <LogOut size={18} strokeWidth={2.25} />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Scale, History, ClipboardPlus } from "lucide-react";
+import { ArrowLeft, Scale, History, ClipboardPlus, Target, User, Cake, Calendar, CalendarClock, CalendarPlus } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getRoutines } from "@/lib/data/trainer";
 import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
@@ -9,7 +9,26 @@ import { Metric } from "@/app/components/shared/Metric";
 import { TrendSparkline } from "@/app/components/shared/TrendSparkline";
 import { ActionForm } from "@/app/components/shared/ActionForm";
 import { StudentDetailActions } from "@/app/trainer/students/[id]/StudentDetailActions";
-import { logMetricForStudent } from "@/app/trainer/students/actions";
+import { StudentAppointments } from "@/app/trainer/students/[id]/StudentAppointments";
+import { logMetricForStudent, updateStudentProfile } from "@/app/trainer/students/actions";
+import { DIAS_SEMANA } from "@/lib/supabase/database.types";
+import type { StudentSchedule } from "@/lib/supabase/database.types";
+import { ScheduleEditor } from "@/app/trainer/students/[id]/ScheduleEditor";
+
+const OBJETIVOS = [
+  { value: "Hipertrofia", label: "Hipertrofia" },
+  { value: "Descenso de grasa", label: "Descenso de grasa" },
+  { value: "Fuerza", label: "Fuerza" },
+  { value: "Salud", label: "Salud" },
+  { value: "RendimientoDeportivo", label: "Rendimiento deportivo" },
+  { value: "Preparacion Fisica", label: "Preparación física" },
+];
+
+const SEXOS = [
+  { value: "masculino", label: "Masculino" },
+  { value: "femenino", label: "Femenino" },
+  { value: "otro", label: "Otro" },
+];
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,7 +43,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
-  const [{ data: profile }, routines, { data: assignment }, { data: sessions }, metrics] = await Promise.all([
+  const [{ data: profile }, routines, { data: assignment }, { data: sessions }, metrics, { data: appointments }] = await Promise.all([
     supabase.from("profiles").select("full_name, email").eq("id", id).single(),
     getRoutines(supabase, user.id),
     supabase
@@ -40,11 +59,55 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       .order("created_at", { ascending: false })
       .limit(5),
     getBodyMetrics(supabase, id),
+    supabase
+      .from("appointments")
+      .select("id, scheduled_at, status, notes, duration_minutes")
+      .eq("student_id", id)
+      .eq("trainer_id", user.id)
+      .order("scheduled_at", { ascending: true }),
+  ]);
+
+  async function safeSingle<T>(q: PromiseLike<{ data: T | null }>) {
+    try { const r = await q; return r.data; } catch { return null; }
+  }
+  async function safeMany<T>(q: PromiseLike<{ data: T[] | null }>) {
+    try { const r = await q; return r.data ?? []; } catch { return []; }
+  }
+
+  const [profileExtra, schedulesResult] = await Promise.all([
+    safeSingle<{ objetivo: string | null; fecha_inicio: string | null; fecha_nacimiento: string | null; sexo: string | null }>(
+      supabase
+        .from("students")
+        .select("objetivo, fecha_inicio, fecha_nacimiento, sexo")
+        .eq("profile_id", id)
+        .eq("trainer_id", user.id)
+        .single()
+    ),
+    safeMany<{ id: string; dia_semana: number; hora: string }>(
+      supabase
+        .from("student_schedules")
+        .select("*")
+        .eq("student_id", id)
+        .order("dia_semana", { ascending: true })
+    ),
   ]);
 
   const weightTrend = buildTrend(metrics, "weightKg");
   const latestMetric = metrics[0];
   const boundLogMetric = logMetricForStudent.bind(null, id);
+  const boundUpdateProfile = updateStudentProfile.bind(null, id);
+  const schedules = schedulesResult as StudentSchedule[];
+  const extra = profileExtra;
+
+  const calcularEdad = (fecha: string | null): string => {
+    if (!fecha) return "-";
+    const nacimiento = new Date(fecha);
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+    return `${edad} años`;
+  };
 
   return (
     <section className="space-y-5">
@@ -69,6 +132,70 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       />
 
       <article className="glass-card rounded-3xl p-5">
+        <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
+          <User size={14} strokeWidth={2.5} />
+          Perfil del alumno
+        </p>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <Metric icon={<Target size={16} strokeWidth={2.25} />} label="Objetivo" value={extra?.objetivo ?? "-"} />
+          <Metric icon={<Cake size={16} strokeWidth={2.25} />} label="Edad" value={calcularEdad(extra?.fecha_nacimiento ?? null)} />
+          <Metric icon={<User size={16} strokeWidth={2.25} />} label="Sexo" value={extra?.sexo ?? "-"} />
+          <Metric icon={<Calendar size={16} strokeWidth={2.25} />} label="Inicio" value={extra?.fecha_inicio ?? "-"} />
+          <Metric icon={<Calendar size={16} strokeWidth={2.25} />} label="Nacimiento" value={extra?.fecha_nacimiento ?? "-"} />
+        </div>
+
+        <details>
+          <summary className="flex cursor-pointer items-center gap-2 text-sm font-bold text-primary">
+            <User size={16} strokeWidth={2.5} />
+            Editar perfil
+          </summary>
+          <div className="mt-4">
+            <ActionForm
+              action={boundUpdateProfile}
+              submitLabel="Guardar cambios"
+              fields={[
+                { name: "fecha_nacimiento", label: "Fecha de nacimiento", type: "date", required: false, defaultValue: extra?.fecha_nacimiento ?? "" },
+                { name: "sexo", label: "Sexo", type: "select", required: false, defaultValue: extra?.sexo ?? "", options: SEXOS },
+                { name: "objetivo", label: "Objetivo", type: "select", required: false, defaultValue: extra?.objetivo ?? "", options: OBJETIVOS },
+                { name: "fecha_inicio", label: "Fecha de inicio", type: "date", required: false, defaultValue: extra?.fecha_inicio ?? "" },
+              ]}
+            />
+          </div>
+        </details>
+      </article>
+
+      <article className="glass-card rounded-3xl p-5">
+        <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
+          <CalendarClock size={14} strokeWidth={2.5} />
+          Horarios semanales
+        </p>
+
+        {schedules.length === 0 ? (
+          <p className="mb-4 text-text-muted">Todavía no hay horarios cargados.</p>
+        ) : (
+          <div className="mb-4 space-y-2">
+            {schedules.map((sched) => (
+              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={sched.id}>
+                <span className="font-bold">{DIAS_SEMANA[sched.dia_semana]}</span>
+                <span className="text-text-muted">{sched.hora.slice(0, 5)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <ScheduleEditor studentId={id} schedules={schedules} />
+      </article>
+
+      <article className="glass-card rounded-3xl p-5">
+        <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
+          <CalendarPlus size={14} strokeWidth={2.5} />
+          Turnos
+        </p>
+        <StudentAppointments appointments={appointments ?? []} studentId={id} />
+      </article>
+
+      <article className="glass-card rounded-3xl p-5">
         <div className="mb-3 flex items-center justify-between">
           <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
             <Scale size={14} strokeWidth={2.5} />
@@ -84,10 +211,10 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
         {latestMetric ? (
           <div className="mb-4 grid grid-cols-2 gap-3">
-            <Metric icon={Scale} label="Peso" value={latestMetric.weightKg != null ? `${latestMetric.weightKg} kg` : "-"} />
-            <Metric icon={Scale} label="Altura" value={latestMetric.heightCm != null ? `${latestMetric.heightCm} cm` : "-"} />
-            <Metric icon={Scale} label="Grasa corporal" value={latestMetric.bodyFatPct != null ? `${latestMetric.bodyFatPct}%` : "-"} />
-            <Metric icon={Scale} label="Masa muscular" value={latestMetric.muscleMassKg != null ? `${latestMetric.muscleMassKg} kg` : "-"} />
+            <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Peso" value={latestMetric.weightKg != null ? `${latestMetric.weightKg} kg` : "-"} />
+            <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Altura" value={latestMetric.heightCm != null ? `${latestMetric.heightCm} cm` : "-"} />
+            <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Grasa corporal" value={latestMetric.bodyFatPct != null ? `${latestMetric.bodyFatPct}%` : "-"} />
+            <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Masa muscular" value={latestMetric.muscleMassKg != null ? `${latestMetric.muscleMassKg} kg` : "-"} />
           </div>
         ) : (
           <p className="mb-4 text-text-muted">Todavía no hay mediciones registradas.</p>

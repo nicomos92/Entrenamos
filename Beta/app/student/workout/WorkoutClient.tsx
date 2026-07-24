@@ -1,10 +1,36 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Repeat, Timer, Gauge, CheckCircle2, ArrowRight } from "lucide-react";
+import { useState, useTransition, useCallback, useEffect, useRef } from "react";
+import { Repeat, Timer, Gauge, CheckCircle2, ArrowRight, ImageIcon, Video, Play, SkipForward } from "lucide-react";
 import { Metric } from "@/app/components/shared/Metric";
 import { finishSession } from "@/app/student/workout/actions";
 import type { AssignedRoutine } from "@/lib/data/student";
+
+function RestTimer({ rest, onFinish }: { rest: number; onFinish: () => void }) {
+  const [remaining, setRemaining] = useState(rest);
+
+  useEffect(() => {
+    if (remaining <= 0) {
+      onFinish();
+      return;
+    }
+    const id = setInterval(() => setRemaining((r) => r - 1), 1000);
+    return () => clearInterval(id);
+  }, [remaining, onFinish]);
+
+  return (
+    <div className="glass-card flex flex-col items-center justify-center gap-4 rounded-[2rem] p-10 text-center">
+      <Timer size={48} strokeWidth={2} className="text-primary" />
+      <p className="text-lg font-bold uppercase tracking-[0.22em] text-text-muted">Descanso</p>
+      <p className="text-6xl font-bold text-primary">{remaining}</p>
+      <p className="text-sm text-text-muted">Segundos restantes</p>
+      <button className="secondary-button mt-2" onClick={onFinish} type="button">
+        <SkipForward size={16} strokeWidth={2.5} />
+        Saltar descanso
+      </button>
+    </div>
+  );
+}
 
 export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -12,12 +38,14 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
   const [effort, setEffort] = useState(3);
   const [startedAt] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
+  const [showRest, setShowRest] = useState(false);
+  const restTimerRef = useRef<(() => void) | null>(null);
 
   const exercise = assignment.exercises[activeIndex];
   const progress = Math.round(((activeIndex + 1) / assignment.exercises.length) * 100);
 
-  const finish = useMemo(
-    () => (completed: string[]) => {
+  const finish = useCallback(
+    (completed: string[]) => {
       const elapsedMinutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
       startTransition(() => {
         finishSession({
@@ -34,16 +62,37 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
   );
 
   const toggleComplete = () => {
-    setCompletedIds((ids) => (ids.includes(exercise.id) ? ids : [...ids, exercise.id]));
+    setCompletedIds((ids) => {
+      if (ids.includes(exercise.exerciseId)) return ids;
+      const newIds = [...ids, exercise.exerciseId];
+      if (activeIndex < assignment.exercises.length - 1) {
+        setShowRest(true);
+      }
+      return newIds;
+    });
   };
 
   const goNext = () => {
     if (activeIndex < assignment.exercises.length - 1) {
+      setShowRest(false);
       setActiveIndex((index) => index + 1);
       return;
     }
     finish(completedIds);
   };
+
+  const goToExercise = () => {
+    setShowRest(false);
+    setActiveIndex((index) => index + 1);
+  };
+
+  if (showRest && activeIndex < assignment.exercises.length - 1) {
+    return (
+      <section className="space-y-6">
+        <RestTimer rest={exercise.rest} onFinish={goToExercise} />
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-6">
@@ -67,9 +116,37 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
             <h1 className="text-4xl font-bold text-primary">{exercise.name}</h1>
           </div>
         </div>
+
+        {(exercise.imageUrl || exercise.videoUrl) && (
+          <div className="flex gap-2 px-5 pt-3">
+            {exercise.imageUrl && (
+              <a
+                className="flex items-center gap-1.5 rounded-full bg-white/50 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-white/70"
+                href={exercise.imageUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <ImageIcon size={12} strokeWidth={2.5} />
+                Ver imagen
+              </a>
+            )}
+            {exercise.videoUrl && (
+              <a
+                className="flex items-center gap-1.5 rounded-full bg-white/50 px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-white/70"
+                href={exercise.videoUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Video size={12} strokeWidth={2.5} />
+                Ver video
+              </a>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 p-5">
-          <Metric icon={Repeat} label="Series" value={`${exercise.sets} x ${exercise.reps ?? exercise.time ?? "-"}`} />
-          <Metric icon={Timer} label="Descanso" value={`${exercise.rest} seg`} />
+          <Metric icon={<Repeat size={16} strokeWidth={2.25} />} label="Series" value={`${exercise.sets} x ${exercise.reps ?? exercise.time ?? "-"}`} />
+          <Metric icon={<Timer size={16} strokeWidth={2.25} />} label="Descanso" value={`${exercise.rest} seg`} />
         </div>
       </article>
 
@@ -98,7 +175,7 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
 
       <button className="premium-button w-full" disabled={isPending} onClick={toggleComplete} type="button">
         <CheckCircle2 size={18} strokeWidth={2.5} />
-        {completedIds.includes(exercise.id) ? "Ejercicio completado" : "Marcar completado"}
+        {completedIds.includes(exercise.exerciseId) ? "Ejercicio completado" : "Marcar completado"}
       </button>
       <button className="secondary-button w-full" disabled={isPending} onClick={goNext} type="button">
         {activeIndex === assignment.exercises.length - 1 ? "Ver resumen" : "Siguiente ejercicio"}

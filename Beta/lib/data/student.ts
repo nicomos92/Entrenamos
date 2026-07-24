@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { safeGet } from "@/lib/utils/safe";
 
 type Client = SupabaseClient<Database>;
 
@@ -12,6 +13,8 @@ export interface AssignedExercise {
   reps: number | null;
   time: string | null;
   rest: number;
+  imageUrl: string | null;
+  videoUrl: string | null;
 }
 
 export interface AssignedRoutine {
@@ -33,12 +36,12 @@ export async function getActiveAssignment(supabase: Client, studentId: string): 
 
   if (!assignment) return null;
 
-  const routine = assignment.routines as unknown as { name: string; goal: string; estimated_minutes: number } | null;
+  const routine = safeGet<{ name: string; goal: string; estimated_minutes: number }>(assignment.routines);
   if (!routine) return null;
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("id, exercise_id, sets, reps, time, rest, order_index, exercises(name, focus)")
+    .select("id, exercise_id, sets, reps, time, rest, order_index, exercises(name, focus, image_url, video_url)")
     .eq("routine_id", assignment.routine_id)
     .order("order_index", { ascending: true });
 
@@ -48,16 +51,21 @@ export async function getActiveAssignment(supabase: Client, studentId: string): 
     name: routine.name,
     goal: routine.goal,
     estimatedMinutes: routine.estimated_minutes,
-    exercises: (routineExercises ?? []).map((re) => ({
-      id: re.id,
-      exerciseId: re.exercise_id,
-      name: (re.exercises as unknown as { name: string; focus: string } | null)?.name ?? "Ejercicio",
-      focus: (re.exercises as unknown as { name: string; focus: string } | null)?.focus ?? "",
-      sets: re.sets,
-      reps: re.reps,
-      time: re.time,
-      rest: re.rest,
-    })),
+    exercises: (routineExercises ?? []).map((re) => {
+      const ex = safeGet<{ name: string; focus: string; image_url: string | null; video_url: string | null }>(re.exercises);
+      return {
+        id: re.id,
+        exerciseId: re.exercise_id,
+        name: ex?.name ?? "Ejercicio",
+        focus: ex?.focus ?? "",
+        sets: re.sets,
+        reps: re.reps,
+        time: re.time,
+        rest: re.rest,
+        imageUrl: ex?.image_url ?? null,
+        videoUrl: ex?.video_url ?? null,
+      };
+    }),
   };
 }
 
@@ -99,7 +107,7 @@ export async function getSessionWithRoutine(supabase: Client, sessionId: string,
 
   return {
     ...session,
-    routineName: (session.routines as unknown as { name: string } | null)?.name ?? "Rutina",
+    routineName: safeGet<{ name: string }>(session.routines)?.name ?? "Rutina",
     totalExercises: totalExercises ?? 0,
     completedExercises: completedExercises ?? 0,
   };

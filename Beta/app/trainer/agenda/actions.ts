@@ -3,15 +3,81 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notifications";
+import type { FormState } from "@/lib/types/form";
 
-export async function createAppointment(formData: FormData) {
+function getScheduledAt(date: string, time: string, tzOffset: number): Date {
+  const [yr, mo, dy] = date.split("-").map(Number);
+  const [hr, mi] = time.split(":").map(Number);
+  return new Date(Date.UTC(yr, mo - 1, dy, hr, mi) + tzOffset * 60 * 1000);
+}
+
+async function checkOverlap(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  trainerId: string,
+  scheduledAt: Date,
+  durationMinutes: number,
+  excludeId?: string
+): Promise<{ studentName: string; scheduledAt: string } | null> {
+  const end = new Date(scheduledAt.getTime() + durationMinutes * 60000).toISOString();
+
+  let query = supabase
+    .from("appointments")
+    .select("student_id, scheduled_at, duration_minutes")
+    .eq("trainer_id", trainerId)
+    .neq("status", "cancelado")
+    .lt("scheduled_at", end);
+
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+
+  const { data } = await query;
+
+  const overlapping = (data ?? []).find((appt) => {
+    const apptStart = new Date(appt.scheduled_at).getTime();
+    const apptEnd = apptStart + (appt.duration_minutes ?? 60) * 60000;
+    return apptEnd > scheduledAt.getTime();
+  });
+
+  if (!overlapping) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", overlapping.student_id)
+    .maybeSingle();
+
+  return {
+    studentName: profile?.full_name ?? "otro alumno",
+    scheduledAt: overlapping.scheduled_at,
+  };
+}
+
+function getRecurringDates(dateStr: string, rule: string, maxWeeks = 8): string[] {
+  if (!rule || rule === "none") return [dateStr];
+  const dates: string[] = [dateStr];
+  const base = new Date(dateStr);
+  const intervalDays = rule === "weekly" ? 7 : 14;
+  for (let i = 1; i < maxWeeks; i++) {
+    const next = new Date(base);
+    next.setDate(next.getDate() + i * intervalDays);
+    dates.push(next.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+export async function createAppointment(_prevState: FormState, formData: FormData): Promise<FormState> {
   const studentId = String(formData.get("student_id") ?? "");
   const date = String(formData.get("date") ?? "");
   const time = String(formData.get("time") ?? "");
   const notes = String(formData.get("notes") ?? "").trim();
+  const durationRaw = String(formData.get("duration_minutes") ?? "60").trim();
+  const durationMinutes = Math.max(15, parseInt(durationRaw, 10) || 60);
+  const recurRule = String(formData.get("recurring") ?? "none");
   const timezoneOffsetMinutes = parseInt(String(formData.get("timezone_offset_minutes") ?? "0"), 10);
 
-  if (!studentId || !date || !time) return;
+  if (!studentId || !date || !time) return { error: "Completa alumno, fecha y hora." };
 
   const supabase = await createClient();
   const {
@@ -19,20 +85,147 @@ export async function createAppointment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Parse datetime as local time, then convert to UTC by adjusting for the client's timezone offset
-  const localDate = new Date(`${date}T${time}:00`);
-  const utcDate = new Date(localDate.getTime() + timezoneOffsetMinutes * 60 * 1000);
-  const scheduledAt = utcDate.toISOString();
+  const scheduledAt = getScheduledAt(date, time, timezoneOffsetMinutes);
 
-  await supabase.from("appointments").insert({
-    trainer_id: user.id,
-    student_id: studentId,
-    scheduled_at: scheduledAt,
-    notes,
+  const overlap = await checkOverlap(supabase, user.id, scheduledAt, durationMinutes);
+  if (overlap) {
+    const overlapTime = new Date(overlap.scheduledAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    return { error: `Ya tenés un turno con ${overlap.studentName} a las ${overlapTime}. Elegí otro horario.` };
+  }
+
+  const recurringDates = getRecurringDates(date, recurRule);
+  const recurringGroupId = recurringDates.length > 1 ? crypto.randomUUID() : null;
+
+  const inserts = recurringDates.map((d, i) => {
+    const sched = getScheduledAt(d, time, timezoneOffsetMinutes);
+    return {
+      trainer_id: user.id,
+      student_id: studentId,
+      scheduled_at: sched.toISOString(),
+      notes: i === 0 ? notes : "",
+      duration_minutes: durationMinutes,
+      recurring_group_id: recurringGroupId,
+      recurring_rule: recurringDates.length > 1 ? recurRule : null,
+    };
+  });
+
+  const { error } = await supabase.from("appointments").insert(inserts);
+  if (error) return { error: "No se pudo crear el turno." };
+
+  const { data: trainerProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+
+  const notifTitle = recurringDates.length > 1
+    ? `Nuevos turnos agendados (${inserts.length} sesiones)`
+    : "Nuevo turno agendado";
+
+  const scheduledLocal = scheduledAt.toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+  });
+
+  await createNotification({
+    userId: studentId,
+    type: "appointment_created",
+    title: notifTitle,
+    body: `${trainerProfile?.full_name ?? "Tu entrenador"} agendó un turno para el ${scheduledLocal} (${durationMinutes} min).`,
+    data: { appointmentId: inserts[0].scheduled_at },
   });
 
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");
+  return {
+    success: true,
+    message: inserts.length === 1
+      ? "Turno agendado."
+      : `${inserts.length} turnos agendados (cada ${recurRule === "weekly" ? "semana" : "2 semanas"}).`,
+    error: null,
+  };
+}
+
+export async function updateAppointment(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const appointmentId = String(formData.get("appointment_id") ?? "");
+  const studentId = String(formData.get("student_id") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const time = String(formData.get("time") ?? "");
+  const notes = String(formData.get("notes") ?? "").trim();
+  const durationRaw = String(formData.get("duration_minutes") ?? "60").trim();
+  const durationMinutes = Math.max(15, parseInt(durationRaw, 10) || 60);
+  const timezoneOffsetMinutes = parseInt(String(formData.get("timezone_offset_minutes") ?? "0"), 10);
+  const applySeries = formData.get("apply_series") === "true";
+
+  if (!appointmentId || !studentId || !date || !time) return { error: "Completa todos los campos." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const scheduledAt = getScheduledAt(date, time, timezoneOffsetMinutes);
+
+  const overlap = await checkOverlap(supabase, user.id, scheduledAt, durationMinutes, appointmentId);
+  if (overlap) {
+    const overlapTime = new Date(overlap.scheduledAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    return { error: `Ya tenés un turno con ${overlap.studentName} a las ${overlapTime}. Elegí otro horario.` };
+  }
+
+  const { data: existing } = await supabase
+    .from("appointments")
+    .select("recurring_group_id")
+    .eq("id", appointmentId)
+    .single();
+
+  if (existing?.recurring_group_id && applySeries) {
+    const deltaMs = scheduledAt.getTime() - new Date(date + "T" + time).getTime();
+    const { data: series } = await supabase
+      .from("appointments")
+      .select("id, scheduled_at")
+      .eq("recurring_group_id", existing.recurring_group_id);
+
+    for (const s of series ?? []) {
+      const oldDate = new Date(s.scheduled_at);
+      await supabase
+        .from("appointments")
+        .update({
+          scheduled_at: new Date(oldDate.getTime() + deltaMs).toISOString(),
+          duration_minutes: durationMinutes,
+          notes,
+        })
+        .eq("id", s.id);
+    }
+  } else {
+    const { error } = await supabase
+      .from("appointments")
+      .update({ scheduled_at: scheduledAt.toISOString(), notes, duration_minutes: durationMinutes })
+      .eq("id", appointmentId);
+
+    if (error) return { error: "No se pudo actualizar el turno." };
+  }
+
+  const { data: trainerProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+
+  const scheduledLocal = scheduledAt.toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+  });
+
+  await createNotification({
+    userId: studentId,
+    type: "appointment_updated",
+    title: "Turno actualizado",
+    body: `${trainerProfile?.full_name ?? "Tu entrenador"} modificó un turno. Nueva fecha: ${scheduledLocal}.`,
+    data: { appointmentId },
+  });
+
+  revalidatePath("/trainer/agenda");
+  revalidatePath("/trainer");
+  return { success: true, message: "Turno actualizado.", error: null };
 }
 
 export async function updateAppointmentStatus(
@@ -40,14 +233,110 @@ export async function updateAppointmentStatus(
   status: "pendiente" | "confirmado" | "cancelado" | "completado"
 ) {
   const supabase = await createClient();
+  const { data: appt } = await supabase
+    .from("appointments")
+    .select("student_id")
+    .eq("id", appointmentId)
+    .single();
+
   await supabase.from("appointments").update({ status }).eq("id", appointmentId);
+
+  if (appt && (status === "cancelado" || status === "completado")) {
+    const { data: trainerProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", appt.student_id)
+      .single();
+
+    await createNotification({
+      userId: appt.student_id,
+      type: status === "cancelado" ? "appointment_cancelled" : "appointment_updated",
+      title: status === "cancelado" ? "Turno cancelado" : "Turno completado",
+      body: `Tu turno fue marcado como "${status}" por el entrenador.`,
+      data: { appointmentId },
+    });
+  }
+
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");
 }
 
 export async function deleteAppointment(appointmentId: string) {
   const supabase = await createClient();
+  const { data: appt } = await supabase
+    .from("appointments")
+    .select("student_id, scheduled_at")
+    .eq("id", appointmentId)
+    .single();
+
   await supabase.from("appointments").delete().eq("id", appointmentId);
+
+  if (appt) {
+    const dateStr = new Date(appt.scheduled_at).toLocaleDateString("es-AR", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+    await createNotification({
+      userId: appt.student_id,
+      type: "appointment_cancelled",
+      title: "Turno eliminado",
+      body: `El turno del ${dateStr} fue eliminado por el entrenador.`,
+      data: { appointmentId },
+    });
+  }
+
+  revalidatePath("/trainer/agenda");
+  revalidatePath("/trainer");
+}
+
+export async function deleteRecurringSeries(groupId: string) {
+  const supabase = await createClient();
+  await supabase.from("appointments").delete().eq("recurring_group_id", groupId);
+  revalidatePath("/trainer/agenda");
+  revalidatePath("/trainer");
+}
+
+export async function cancelRecurringSeries(groupId: string, futureOnly = true) {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  let query = supabase.from("appointments").update({ status: "cancelado" }).eq("recurring_group_id", groupId);
+  if (futureOnly) {
+    query = query.gte("scheduled_at", now);
+  }
+  await query;
+  revalidatePath("/trainer/agenda");
+  revalidatePath("/trainer");
+}
+
+export async function rescheduleAppointment(appointmentId: string, newScheduledAt: string) {
+  const supabase = await createClient();
+  const { data: appt } = await supabase
+    .from("appointments")
+    .select("student_id, duration_minutes")
+    .eq("id", appointmentId)
+    .single();
+
+  if (!appt) throw new Error("Turno no encontrado");
+
+  const newDate = new Date(newScheduledAt);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autenticado");
+
+  const overlap = await checkOverlap(supabase, user.id, newDate, appt.duration_minutes ?? 60, appointmentId);
+  if (overlap) throw new Error("Horario ocupado");
+
+  await supabase.from("appointments").update({ scheduled_at: newScheduledAt }).eq("id", appointmentId);
+
+  await createNotification({
+    userId: appt.student_id,
+    type: "appointment_updated",
+    title: "Turno reprogramado",
+    body: `Tu turno fue reprogramado para el ${newDate.toLocaleDateString("es-AR", {
+      weekday: "long", day: "numeric", month: "long",
+      hour: "2-digit", minute: "2-digit",
+    })}.`,
+    data: { appointmentId },
+  });
+
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");
 }

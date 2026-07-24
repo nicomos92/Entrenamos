@@ -1,6 +1,6 @@
-import { Status } from "@/app/types";
+import type { StudentStatus } from "@/lib/supabase/database.types";
 
-export function StatusBadge({ status }: { status: Status }) {
+export function StatusBadge({ status }: { status: StudentStatus }) {
   const isActive = status === "activo";
   return (
     <span

@@ -34,10 +34,10 @@ export default async function TrainerDashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric icon={Users} label="Alumnos activos" value={`${activeStudents}`} />
-        <Metric icon={AlertTriangle} label="Alertas" value={`${needsAttention.length}`} />
-        <Metric icon={CalendarClock} label="Turnos hoy" value={`${sessionsToday}`} />
-        <Metric icon={TrendingUp} label="Cumplimiento" value={`${avgAdherence}%`} />
+        <Metric icon={<Users size={16} strokeWidth={2.25} />} label="Alumnos activos" value={`${activeStudents}`} />
+        <Metric icon={<AlertTriangle size={16} strokeWidth={2.25} />} label="Alertas" value={`${needsAttention.length}`} />
+        <Metric icon={<CalendarClock size={16} strokeWidth={2.25} />} label="Turnos hoy" value={`${sessionsToday}`} />
+        <Metric icon={<TrendingUp size={16} strokeWidth={2.25} />} label="Cumplimiento" value={`${avgAdherence}%`} />
       </div>
 
       {students.length === 0 ? (
@@ -49,13 +49,13 @@ export default async function TrainerDashboardPage() {
             </Link>
           }
           description="Empezá dando de alta a tu primer alumno para ver su progreso acá."
-          icon={Users}
+          icon={<Users size={26} strokeWidth={2.25} />}
           title="Todavía no tenés alumnos cargados"
         />
       ) : priority ? (
         <article className="glass-card rounded-[2rem] p-6">
           <div className="flex items-center gap-3">
-            <IconBadge icon={Flame} tone="attention" />
+            <IconBadge icon={<Flame size={20} strokeWidth={2.25} />} tone="attention" />
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-text-muted">Prioridad</p>
           </div>
           <h2 className="mt-3 text-2xl font-bold text-primary">{priority.fullName}</h2>
@@ -70,7 +70,7 @@ export default async function TrainerDashboardPage() {
         </article>
       ) : (
         <article className="glass-card flex flex-col items-center gap-3 rounded-[2rem] p-6 text-center">
-          <IconBadge icon={PartyPopper} />
+          <IconBadge icon={<PartyPopper size={20} strokeWidth={2.25} />} />
           <p className="font-bold text-primary">Todo en orden. Ningún alumno requiere atención urgente.</p>
         </article>
       )}

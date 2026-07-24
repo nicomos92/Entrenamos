@@ -10,9 +10,9 @@
      Se pueden sobreescribir por entrenador seteando estas mismas variables en
      un contenedor (ver app/student/layout.tsx, app/login/LoginForm.tsx y
      lib/color.ts). */
-  --brand-primary-rgb: 22 163 74; /* #16A34A */
-  --brand-secondary-rgb: 34 197 94; /* #22C55E */
-  --brand-soft-rgb: 220 252 231; /* #DCFCE7 */
+  --brand-primary-rgb: 26 54 93; /* #1A365D — Marino */
+  --brand-secondary-rgb: 139 26 43; /* #8B1A2B — Vino */
+  --brand-soft-rgb: 222 226 236; /* #DEE2EC — Azul claro */
 }
 
 * {
@@ -28,7 +28,7 @@ body {
   margin: 0;
   background:
     radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.85), transparent 34%),
-    linear-gradient(135deg, #dcfce7 0%, #f8fafc 100%);
+    linear-gradient(135deg, #dee2ec 0%, #f8fafc 100%);
   color: #0f172a;
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -48,7 +48,7 @@ select {
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -56,28 +56,46 @@ select {
   }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @layer components {
   .glass-card {
-    @apply border border-white/50 bg-white/40 shadow-lift backdrop-blur-xl transition-shadow;
+    @apply border border-white/50 bg-white/40 shadow-lift backdrop-blur-xl transition-all duration-200 hover:shadow-soft;
   }
 
   .premium-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-secondary px-5 py-4 font-bold text-white shadow-glow transition duration-150 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-secondary px-5 py-4 font-bold text-white shadow-glow transition-all duration-150 hover:brightness-105 hover:shadow-lg active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .secondary-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-secondary/20 bg-white/30 px-5 py-4 font-bold text-primary transition duration-150 hover:bg-white/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-secondary/20 bg-white/30 px-5 py-4 font-bold text-primary transition-all duration-150 hover:bg-white/50 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .ghost-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-text-muted transition duration-150 hover:bg-white/40 hover:text-text-primary;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-text-muted transition-all duration-150 hover:bg-white/40 hover:text-text-primary;
   }
 
   .field-input {
-    @apply w-full rounded-2xl border border-white/50 bg-white/40 px-4 py-3.5 text-text-primary outline-none transition placeholder:text-text-muted focus:border-secondary focus:bg-white/60;
+    @apply w-full rounded-2xl border border-white/50 bg-white/40 px-4 py-3.5 text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-secondary focus:bg-white/60 focus:shadow-soft;
   }
 
   .animate-in {
-    animation: fade-up 0.35s ease-out both;
+    animation: fade-up 0.4s ease-out both;
+  }
+
+  .animate-fade {
+    animation: fade-in 0.3s ease-out both;
+  }
+
+  .animate-scale {
+    animation: scale-in 0.3s ease-out both;
   }
 }

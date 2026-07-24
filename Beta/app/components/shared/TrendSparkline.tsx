@@ -2,9 +2,10 @@ interface TrendSparklineProps {
   points: { date: string; value: number }[];
   width?: number;
   height?: number;
+  color?: string;
 }
 
-export function TrendSparkline({ points, width = 220, height = 56 }: TrendSparklineProps) {
+export function TrendSparkline({ points, width = 220, height = 56, color = "rgb(var(--brand-primary-rgb, 22 163 74))" }: TrendSparklineProps) {
   if (points.length < 2) {
     return <p className="text-sm text-text-muted">Necesitás al menos 2 mediciones para ver la tendencia.</p>;
   }
@@ -26,8 +27,8 @@ export function TrendSparkline({ points, width = 220, height = 56 }: TrendSparkl
 
   return (
     <svg height={height} viewBox={`0 0 ${width} ${height}`} width={width}>
-      <path d={path} fill="none" stroke="#16A34A" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
-      <circle cx={last.x} cy={last.y} fill="#16A34A" r={4} />
+      <path d={path} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
+      <circle cx={last.x} cy={last.y} fill={color} r={4} />
     </svg>
   );
 }

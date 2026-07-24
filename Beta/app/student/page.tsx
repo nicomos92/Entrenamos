@@ -1,16 +1,37 @@
 import Link from "next/link";
-import { Target, ListChecks, Flame, Play } from "lucide-react";
+import { Target, ListChecks, Flame, Play, History, CalendarClock, Scale, ChevronRight } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getActiveAssignment, getWeeklyProgress } from "@/lib/data/student";
+import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
 import { Metric } from "@/app/components/shared/Metric";
+import { TrendSparkline } from "@/app/components/shared/TrendSparkline";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 
 export default async function StudentHomePage() {
   const { supabase, user, profile } = await requireProfile("student");
-  const [assignment, weeklyProgress] = await Promise.all([
+
+  const [assignment, weeklyProgress, recentSessions, appointmentsData, metrics] = await Promise.all([
     getActiveAssignment(supabase, user.id),
     getWeeklyProgress(supabase, user.id),
+    supabase
+      .from("sessions")
+      .select("id, effort, elapsed_minutes, status, created_at, routines(name)")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("appointments")
+      .select("id, scheduled_at, status, notes")
+      .eq("student_id", user.id)
+      .gte("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: true })
+      .limit(3),
+    getBodyMetrics(supabase, user.id),
   ]);
+
+  const sessions = recentSessions.data ?? [];
+  const appointments = appointmentsData.data ?? [];
+  const weightTrend = buildTrend(metrics, "weightKg");
 
   return (
     <section className="space-y-6">
@@ -22,7 +43,7 @@ export default async function StudentHomePage() {
       {!assignment ? (
         <EmptyState
           description="Tu entrenador te va a asignar una pronto."
-          icon={ListChecks}
+          icon={<ListChecks size={26} strokeWidth={2.25} />}
           title="Todavía no tenés una rutina asignada"
         />
       ) : (
@@ -33,8 +54,8 @@ export default async function StudentHomePage() {
           </div>
           <h2 className="text-3xl font-bold leading-tight text-primary">Rutina del día: {assignment.name}</h2>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <Metric icon={Target} label="Objetivo" value={assignment.goal || "General"} />
-            <Metric icon={ListChecks} label="Ejercicios" value={`${assignment.exercises.length}`} />
+            <Metric icon={<Target size={16} strokeWidth={2.25} />} label="Objetivo" value={assignment.goal || "General"} />
+            <Metric icon={<ListChecks size={16} strokeWidth={2.25} />} label="Ejercicios" value={`${assignment.exercises.length}`} />
           </div>
           <Link className="premium-button mt-6 w-full" href="/student/workout">
             <Play size={18} strokeWidth={2.5} />
@@ -62,6 +83,85 @@ export default async function StudentHomePage() {
             : `Estás a ${weeklyProgress.goal - weeklyProgress.done} sesiones de tu meta. Mantené el ritmo.`}
         </p>
       </article>
+
+      {weightTrend.points.length >= 2 && (
+        <article className="glass-card rounded-[1.75rem] p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.24em] text-text-primary">
+              <Scale size={14} strokeWidth={2.5} />
+              Peso corporal
+            </p>
+            {weightTrend.deltaFromFirst != null && (
+              <span className="text-sm font-bold text-primary">
+                {weightTrend.deltaFromFirst > 0 ? "+" : ""}
+                {weightTrend.deltaFromFirst} kg
+              </span>
+            )}
+          </div>
+          <TrendSparkline points={weightTrend.points} />
+        </article>
+      )}
+
+      {appointments.length > 0 && (
+        <article className="glass-card rounded-[1.75rem] p-6">
+          <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.24em] text-text-primary">
+            <CalendarClock size={14} strokeWidth={2.5} />
+            Próximos turnos
+          </p>
+          <div className="space-y-2">
+            {appointments.map((appt) => (
+              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={appt.id}>
+                <span className="font-bold">
+                  {new Date(appt.scheduled_at).toLocaleString("es-AR", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="text-text-muted">{appt.status}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
+      {sessions.length > 0 && (
+        <article className="glass-card rounded-[1.75rem] p-6">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.24em] text-text-primary">
+              <History size={14} strokeWidth={2.5} />
+              Últimas sesiones
+            </p>
+            <Link className="text-sm font-bold text-primary" href="/student/summary">
+              Ver todo <ChevronRight size={14} className="inline" strokeWidth={2.5} />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {sessions.slice(0, 5).map((session) => {
+              const routineName = (session.routines as { name: string } | null)?.name ?? "Rutina";
+              return (
+                <Link
+                  className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm transition hover:bg-white/50"
+                  href={`/student/summary?session=${session.id}`}
+                  key={session.id}
+                >
+                  <div>
+                    <span className="font-bold">{routineName}</span>
+                    <span className="ml-2 text-text-muted">
+                      {new Date(session.created_at).toLocaleDateString("es-AR")}
+                    </span>
+                  </div>
+                  <span className="text-text-muted">
+                    {session.elapsed_minutes ?? "-"} min · {session.effort ?? "-"}/5 RPE
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </article>
+      )}
     </section>
   );
 }

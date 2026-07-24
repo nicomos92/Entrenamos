@@ -1,7 +1,7 @@
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { IconBadge } from "@/app/components/shared/IconBadge";
 
-export function Metric({ label, value, icon }: { label: string; value: string; icon: LucideIcon }) {
+export function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
     <div className="glass-card rounded-3xl p-4">
       <IconBadge icon={icon} size="sm" />

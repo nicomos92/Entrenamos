@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { safeGet } from "@/lib/utils/safe";
 
 type Client = SupabaseClient<Database>;
 
@@ -55,7 +56,7 @@ export async function getStudentsWithStats(supabase: Client, trainerId: string):
   const assignmentMap = new Map(
     (assignments ?? []).map((a) => [
       a.student_id,
-      { routineId: a.routine_id, routineName: (a.routines as unknown as { name: string } | null)?.name ?? null },
+      { routineId: a.routine_id, routineName: safeGet<{ name: string }>(a.routines)?.name ?? null },
     ])
   );
   const nextAppointmentMap = new Map<string, string>();
@@ -159,7 +160,7 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
 export async function getAppointments(supabase: Client, trainerId: string) {
   const { data } = await supabase
     .from("appointments")
-    .select("id, student_id, scheduled_at, status, notes")
+    .select("id, student_id, scheduled_at, status, notes, duration_minutes, recurring_group_id, recurring_rule")
     .eq("trainer_id", trainerId)
     .order("scheduled_at", { ascending: true });
 

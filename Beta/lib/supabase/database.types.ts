@@ -6,6 +6,17 @@ export type Role = "admin" | "trainer" | "student";
 export type StudentStatus = "activo" | "inactivo";
 export type SessionStatus = "completada" | "incompleta";
 export type AppointmentStatus = "pendiente" | "confirmado" | "cancelado" | "completado";
+export type Objetivo = "Hipertrofia" | "Descenso de grasa" | "Fuerza" | "Salud" | "RendimientoDeportivo" | "Preparacion Fisica";
+export type Sexo = "masculino" | "femenino" | "otro";
+
+export const DIAS_SEMANA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"] as const;
+
+export interface StudentSchedule {
+  id: string;
+  student_id: string;
+  dia_semana: number;
+  hora: string;
+}
 
 export interface Database {
   public: {
@@ -47,6 +58,10 @@ export interface Database {
           trainer_id: string;
           status: StudentStatus;
           note: string;
+          objetivo: string | null;
+          fecha_inicio: string | null;
+          fecha_nacimiento: string | null;
+          sexo: string | null;
           created_at: string;
         };
         Insert: {
@@ -54,11 +69,19 @@ export interface Database {
           trainer_id: string;
           status?: StudentStatus;
           note?: string;
+          objetivo?: string | null;
+          fecha_inicio?: string | null;
+          fecha_nacimiento?: string | null;
+          sexo?: string | null;
           created_at?: string;
         };
         Update: Partial<{
           status: StudentStatus;
           note: string;
+          objetivo: string | null;
+          fecha_inicio: string | null;
+          fecha_nacimiento: string | null;
+          sexo: string | null;
         }>;
         Relationships: [
           {
@@ -82,31 +105,28 @@ export interface Database {
           id: string;
           trainer_id: string;
           name: string;
-          default_sets: number;
-          default_reps: number | null;
-          default_time: string | null;
-          default_rest: number;
+          description: string | null;
           focus: string;
+          image_url: string | null;
+          video_url: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           trainer_id: string;
           name: string;
-          default_sets?: number;
-          default_reps?: number | null;
-          default_time?: string | null;
-          default_rest?: number;
+          description?: string | null;
           focus?: string;
+          image_url?: string | null;
+          video_url?: string | null;
           created_at?: string;
         };
         Update: Partial<{
           name: string;
-          default_sets: number;
-          default_reps: number | null;
-          default_time: string | null;
-          default_rest: number;
+          description: string | null;
           focus: string;
+          image_url: string | null;
+          video_url: string | null;
         }>;
         Relationships: [
           {
@@ -337,6 +357,9 @@ export interface Database {
           scheduled_at: string;
           status: AppointmentStatus;
           notes: string;
+          duration_minutes: number;
+          recurring_group_id: string | null;
+          recurring_rule: string | null;
           created_at: string;
         };
         Insert: {
@@ -346,12 +369,16 @@ export interface Database {
           scheduled_at: string;
           status?: AppointmentStatus;
           notes?: string;
+          duration_minutes?: number;
+          recurring_group_id?: string | null;
+          recurring_rule?: string | null;
           created_at?: string;
         };
         Update: Partial<{
           scheduled_at: string;
           status: AppointmentStatus;
           notes: string;
+          duration_minutes: number;
         }>;
         Relationships: [
           {
@@ -414,6 +441,69 @@ export interface Database {
           {
             foreignKeyName: "body_metrics_recorded_by_fkey";
             columns: ["recorded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      student_schedules: {
+        Row: {
+          id: string;
+          student_id: string;
+          dia_semana: number;
+          hora: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          dia_semana: number;
+          hora: string;
+          created_at?: string;
+        };
+        Update: Partial<{
+          dia_semana: number;
+          hora: string;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "student_schedules_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["profile_id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string;
+          data: Record<string, unknown>;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body?: string;
+          data?: Record<string, unknown>;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<{
+          read: boolean;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];

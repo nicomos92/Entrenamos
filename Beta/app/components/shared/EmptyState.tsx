@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { IconBadge } from "@/app/components/shared/IconBadge";
 
@@ -8,7 +7,7 @@ export function EmptyState({
   description,
   action,
 }: {
-  icon: LucideIcon;
+  icon: ReactNode;
   title: string;
   description: string;
   action?: ReactNode;

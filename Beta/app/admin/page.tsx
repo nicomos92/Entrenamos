@@ -16,7 +16,7 @@ export default async function AdminPage() {
 
   return (
     <section className="space-y-6">
-      <SectionHeader eyebrow="Gestión de entrenadores" icon={Users} title="Clientes SIMos" />
+      <SectionHeader eyebrow="Gestión de entrenadores" icon={<Users size={20} strokeWidth={2.25} />} title="Clientes SIMos" />
 
       <article className="glass-card rounded-[2rem] p-6">
         <p className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
@@ -39,7 +39,7 @@ export default async function AdminPage() {
           Entrenadores ({trainers?.length ?? 0})
         </p>
         {!trainers || trainers.length === 0 ? (
-          <EmptyState description="Creá el primero con el formulario de arriba." icon={Users} title="Todavía no creaste ningún entrenador" />
+          <EmptyState description="Creá el primero con el formulario de arriba." icon={<Users size={26} strokeWidth={2.25} />} title="Todavía no creaste ningún entrenador" />
         ) : (
           <div className="space-y-2">
             {trainers.map((trainer) => (

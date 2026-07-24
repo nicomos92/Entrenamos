@@ -13,7 +13,7 @@ export default function NewExercisePage() {
           Ejercicios
         </Link>
         <div className="mt-3 flex items-center gap-3">
-          <IconBadge icon={Dumbbell} />
+          <IconBadge icon={<Dumbbell size={20} strokeWidth={2.25} />} />
           <h1 className="text-3xl font-bold text-text-primary">Nuevo ejercicio</h1>
         </div>
       </div>
@@ -24,11 +24,11 @@ export default function NewExercisePage() {
           submitLabel="Crear ejercicio"
           fields={[
             { name: "name", label: "Nombre", type: "text" },
-            { name: "focus", label: "Foco (ej: Piernas, Core)", type: "text", required: false },
-            { name: "sets", label: "Series", type: "number", defaultValue: "3" },
-            { name: "reps", label: "Repeticiones (dejar vacío si usás tiempo)", type: "number", required: false },
-            { name: "time", label: "Tiempo (ej: 45 seg)", type: "text", required: false },
-            { name: "rest", label: "Descanso (segundos)", type: "number", defaultValue: "60" },
+            { name: "description", label: "Descripción", type: "textarea", required: false },
+            { name: "focus", label: "Grupo / Foco (ej: Piernas, Core)", type: "text", required: false },
+            { name: "image", label: "Imagen de ejemplo", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
+            { name: "image_url", label: "O URL de imagen", type: "text", required: false },
+            { name: "video_url", label: "URL de video demostrativo", type: "text", required: false },
           ]}
         />
       </div>

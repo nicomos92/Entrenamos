@@ -19,7 +19,46 @@ export async function updateFullName(_prevState: FormState, formData: FormData):
   if (error) return { error: "No se pudo actualizar el nombre." };
 
   revalidatePath("/student/profile");
-  return { error: null };
+  return { success: true, message: "Nombre actualizado.", error: null };
+}
+
+export async function updateMyProfile(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const fechaNacimiento = String(formData.get("fecha_nacimiento") ?? "").trim() || null;
+  const sexo = String(formData.get("sexo") ?? "").trim() || null;
+  const objetivo = String(formData.get("objetivo") ?? "").trim() || null;
+
+  const updateData: { fecha_nacimiento: string | null; sexo: string | null; objetivo?: string | null } = {
+    fecha_nacimiento: fechaNacimiento,
+    sexo,
+  };
+
+  if (objetivo !== null) {
+    const { count } = await supabase
+      .from("assignments")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", user.id)
+      .eq("active", true);
+    if (count && count > 0) {
+      return { error: "No podés cambiar tu objetivo mientras tengas una rutina activa. Consultá a tu entrenador." };
+    }
+    updateData.objetivo = objetivo;
+  }
+
+  const { error } = await supabase
+    .from("students")
+    .update(updateData)
+    .eq("profile_id", user.id);
+
+  if (error) return { error: "No se pudieron guardar los cambios." };
+
+  revalidatePath("/student/profile");
+  return { success: true, message: "Perfil actualizado.", error: null };
 }
 
 export async function logBodyMetric(_prevState: FormState, formData: FormData): Promise<FormState> {
@@ -52,5 +91,5 @@ export async function logBodyMetric(_prevState: FormState, formData: FormData): 
   if (error) return { error: "No se pudo guardar la medición." };
 
   revalidatePath("/student/profile");
-  return { error: null };
+  return { success: true, message: "Medición guardada.", error: null };
 }

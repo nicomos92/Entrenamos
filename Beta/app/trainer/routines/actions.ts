@@ -37,6 +37,17 @@ export async function createRoutine(_prevState: FormState, formData: FormData): 
 
 export async function deleteRoutine(routineId: string) {
   const supabase = await createClient();
+
+  const { count } = await supabase
+    .from("assignments")
+    .select("id", { count: "exact", head: true })
+    .eq("routine_id", routineId)
+    .eq("active", true);
+
+  if (count && count > 0) {
+    return;
+  }
+
   await supabase.from("routines").delete().eq("id", routineId);
   revalidatePath("/trainer/routines");
   redirect("/trainer/routines");

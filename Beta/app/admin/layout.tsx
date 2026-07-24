@@ -1,10 +1,9 @@
-import { Users } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { TopBar } from "@/app/components/TopBar";
 import { Sidebar } from "@/app/components/Sidebar";
 import type { NavItem } from "@/app/components/SectionNav";
 
-const NAV_ITEMS: NavItem[] = [{ href: "/admin", label: "Entrenadores", icon: Users }];
+const NAV_ITEMS: NavItem[] = [{ href: "/admin", label: "Entrenadores", icon: "Users" }];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireProfile("admin");
@@ -14,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <Sidebar items={NAV_ITEMS} name={profile.full_name} subtitle="Panel de administración" />
       <main className="min-w-0 flex-1 lg:py-2">
         <TopBar name={profile.full_name} subtitle="Panel de administración" />
-        {children}
+        <div className="animate-in">{children}</div>
       </main>
     </div>
   );

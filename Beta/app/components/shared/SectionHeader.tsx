@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { IconBadge } from "@/app/components/shared/IconBadge";
 
@@ -8,7 +7,7 @@ export function SectionHeader({
   title,
   action,
 }: {
-  icon: LucideIcon;
+  icon: ReactNode;
   eyebrow: string;
   title: string;
   action?: ReactNode;
