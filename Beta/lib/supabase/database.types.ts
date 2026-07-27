@@ -320,6 +320,8 @@ export interface Database {
           session_id: string;
           exercise_id: string;
           completed: boolean;
+          difficulty: number | null;
+          notes: string | null;
           created_at: string;
         };
         Insert: {
@@ -327,10 +329,14 @@ export interface Database {
           session_id: string;
           exercise_id: string;
           completed?: boolean;
+          difficulty?: number | null;
+          notes?: string | null;
           created_at?: string;
         };
         Update: Partial<{
           completed: boolean;
+          difficulty: number | null;
+          notes: string | null;
         }>;
         Relationships: [
           {
@@ -506,6 +512,123 @@ export interface Database {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      conversations: {
+        Row: {
+          id: string;
+          student_id: string;
+          trainer_id: string;
+          subject: string;
+          status: "open" | "closed";
+          context_type: string | null;
+          context_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          trainer_id: string;
+          subject?: string;
+          status?: "open" | "closed";
+          context_type?: string | null;
+          context_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          subject: string;
+          status: "open" | "closed";
+          updated_at: string;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "conversations_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<{
+          read: boolean;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      exercise_sets: {
+        Row: {
+          id: string;
+          session_exercise_id: string;
+          set_number: number;
+          weight_kg: number | null;
+          reps: number | null;
+          rpe: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_exercise_id: string;
+          set_number: number;
+          weight_kg?: number | null;
+          reps?: number | null;
+          rpe?: number | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          set_number: number;
+          weight_kg: number | null;
+          reps: number | null;
+          rpe: number | null;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "exercise_sets_session_exercise_id_fkey";
+            columns: ["session_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "session_exercises";
             referencedColumns: ["id"];
           },
         ];

@@ -4,6 +4,19 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
+interface SetInput {
+  weightKg?: number;
+  reps?: number;
+  rpe?: number;
+}
+
+interface ExerciseFeedback {
+  exerciseId: string;
+  difficulty?: number;
+  notes?: string;
+  sets?: SetInput[];
+}
+
 interface FinishSessionInput {
   assignmentId: string;
   routineId: string;
@@ -11,6 +24,7 @@ interface FinishSessionInput {
   completedExerciseIds: string[];
   effort: number;
   elapsedMinutes: number;
+  exerciseFeedback?: ExerciseFeedback[];
 }
 
 export async function finishSession(input: FinishSessionInput) {
@@ -40,17 +54,62 @@ export async function finishSession(input: FinishSessionInput) {
   }
 
   if (input.completedExerciseIds.length > 0) {
-    const { error: exercisesError } = await supabase.from("session_exercises").insert(
-      input.completedExerciseIds.map((exerciseId) => ({
+    const feedbackMap: Record<string, ExerciseFeedback> = {};
+    for (const fb of input.exerciseFeedback ?? []) {
+      feedbackMap[fb.exerciseId] = fb;
+    }
+
+    const sessionExercises = [];
+    for (const exerciseId of input.completedExerciseIds) {
+      const fb = feedbackMap[exerciseId];
+      sessionExercises.push({
         session_id: session.id,
         exercise_id: exerciseId,
         completed: true,
-      }))
-    );
+        difficulty: fb?.difficulty ?? null,
+        notes: fb?.notes ?? null,
+      });
+    }
+
+    const { data: inserted, error: exercisesError } = await supabase
+      .from("session_exercises")
+      .insert(sessionExercises)
+      .select("id, exercise_id");
 
     if (exercisesError) {
       await supabase.from("sessions").delete().eq("id", session.id);
       redirect("/student/workout");
+    }
+
+    const setIdByExercise: Record<string, string> = {};
+    for (const se of inserted ?? []) {
+      setIdByExercise[se.exercise_id] = se.id;
+    }
+
+    const allSets: {
+      session_exercise_id: string;
+      set_number: number;
+      weight_kg: number | null;
+      reps: number | null;
+      rpe: number | null;
+    }[] = [];
+
+    for (const fb of input.exerciseFeedback ?? []) {
+      const seId = setIdByExercise[fb.exerciseId];
+      if (!seId || !fb.sets || fb.sets.length === 0) continue;
+      for (let i = 0; i < fb.sets.length; i++) {
+        allSets.push({
+          session_exercise_id: seId,
+          set_number: i + 1,
+          weight_kg: fb.sets[i].weightKg ?? null,
+          reps: fb.sets[i].reps ?? null,
+          rpe: fb.sets[i].rpe ?? null,
+        });
+      }
+    }
+
+    if (allSets.length > 0) {
+      await supabase.from("exercise_sets").insert(allSets);
     }
   }
 

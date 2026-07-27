@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/trainer/routines", label: "Rutinas", icon: "ClipboardList" },
   { href: "/trainer/agenda", label: "Agenda", icon: "CalendarDays" },
   { href: "/trainer/import", label: "Importar", icon: "Upload" },
+  { href: "/trainer/messages", label: "Mensajes", icon: "MessageCircle" },
   { href: "/trainer/settings", label: "Config", icon: "Settings2" },
 ];
 

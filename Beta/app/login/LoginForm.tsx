@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition, type CSSProperties } from "react";
-import { ArrowRight, LogIn } from "lucide-react";
+import { ArrowRight, LogIn, Eye, EyeOff } from "lucide-react";
 import { login, type AuthFormState } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/client";
 import { brandCssVars } from "@/lib/color";
@@ -21,6 +21,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [branding, setBranding] = useState<Branding | null>(null);
   const [checking, startChecking] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleContinue() {
     if (!email.trim()) return;
@@ -94,13 +95,23 @@ export function LoginForm() {
 
           <label className="block">
             <span className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-text-muted">Contraseña</span>
-            <input
-              autoComplete="current-password"
-              autoFocus
-              className="field-input"
-              name="password"
-              type="password"
-            />
+            <div className="relative">
+              <input
+                autoComplete="current-password"
+                autoFocus
+                className="field-input w-full pr-11"
+                name="password"
+                type={showPassword ? "text" : "password"}
+              />
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted transition hover:text-primary"
+                onClick={() => setShowPassword((prev) => !prev)}
+                tabIndex={-1}
+                type="button"
+              >
+                {showPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+              </button>
+            </div>
           </label>
 
           {state.error && (

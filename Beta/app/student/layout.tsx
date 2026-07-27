@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/student/workout", label: "Rutina", icon: "Dumbbell" },
   { href: "/student/agenda", label: "Agenda", icon: "CalendarDays" },
   { href: "/student/summary", label: "Resumen", icon: "BarChart3" },
+  { href: "/student/messages", label: "Mensajes", icon: "MessageCircle" },
   { href: "/student/profile", label: "Perfil", icon: "User" },
 ];
 

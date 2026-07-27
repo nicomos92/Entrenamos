@@ -4,6 +4,7 @@ import { ActionForm } from "@/app/components/shared/ActionForm";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 import { SectionHeader } from "@/app/components/shared/SectionHeader";
 import { createTrainer } from "@/app/admin/actions";
+import { ResetDatabaseButton } from "@/app/admin/ResetDatabaseButton";
 
 export default async function AdminPage() {
   const { supabase } = await requireProfile("admin");
@@ -54,6 +55,8 @@ export default async function AdminPage() {
           </div>
         )}
       </article>
+
+      {trainers && trainers.length > 0 && <ResetDatabaseButton />}
     </section>
   );
 }
