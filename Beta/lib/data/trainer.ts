@@ -105,6 +105,13 @@ export async function getExercises(supabase: Client, trainerId: string) {
   return data ?? [];
 }
 
+export interface RoutineSetConfig {
+  id: string;
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+}
+
 export interface RoutineWithExercises {
   id: string;
   name: string;
@@ -118,7 +125,9 @@ export interface RoutineWithExercises {
     reps: number | null;
     time: string | null;
     rest: number;
+    intensity_pct: number | null;
     order_index: number;
+    routineExerciseSets: RoutineSetConfig[];
   }[];
 }
 
@@ -133,12 +142,32 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("id, routine_id, exercise_id, sets, reps, time, rest, order_index, exercises(name)")
+    .select("id, routine_id, exercise_id, sets, reps, time, rest, order_index, intensity_pct, exercises(name)")
     .in(
       "routine_id",
       routines.map((r) => r.id)
     )
     .order("order_index", { ascending: true });
+
+  const reIds = (routineExercises ?? []).map((re) => re.id);
+  const { data: setsData } = reIds.length > 0
+    ? await supabase
+        .from("routine_exercise_sets")
+        .select("id, routine_exercise_id, set_number, reps, weight_kg")
+        .in("routine_exercise_id", reIds)
+        .order("set_number", { ascending: true })
+    : { data: [] };
+
+  const setsByRe: Record<string, RoutineSetConfig[]> = {};
+  for (const s of setsData ?? []) {
+    if (!setsByRe[s.routine_exercise_id]) setsByRe[s.routine_exercise_id] = [];
+    setsByRe[s.routine_exercise_id].push({
+      id: s.id,
+      setNumber: s.set_number,
+      reps: s.reps,
+      weightKg: s.weight_kg,
+    });
+  }
 
   return routines.map((routine) => ({
     ...routine,
@@ -152,7 +181,9 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
         reps: re.reps,
         time: re.time,
         rest: re.rest,
+        intensity_pct: re.intensity_pct,
         order_index: re.order_index,
+        routineExerciseSets: setsByRe[re.id] ?? [],
       })),
   }));
 }

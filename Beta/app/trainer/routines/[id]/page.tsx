@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ListChecks, PlusCircle } from "lucide-react";
+import { ArrowLeft, ListChecks, PlusCircle, Dumbbell } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getExercises } from "@/lib/data/trainer";
 import { DeleteButton } from "@/app/components/shared/DeleteButton";
-import { addExerciseToRoutine, deleteRoutine, removeExerciseFromRoutine } from "@/app/trainer/routines/actions";
+import { deleteRoutine, removeExerciseFromRoutine } from "@/app/trainer/routines/actions";
+import { AddExerciseForm } from "@/app/trainer/routines/[id]/AddExerciseForm";
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,14 +23,41 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const [{ data: routineExercises }, exercises] = await Promise.all([
     supabase
       .from("routine_exercises")
-      .select("id, sets, reps, time, rest, order_index, exercises(id, name)")
+      .select("id, sets, reps, time, rest, order_index, intensity_pct, exercises(id, name, focus, rm)")
       .eq("routine_id", id)
       .order("order_index", { ascending: true }),
     getExercises(supabase, user.id),
   ]);
 
-  const boundAdd = addExerciseToRoutine.bind(null, id);
+  const reIds = (routineExercises ?? []).map((re) => re.id);
+  const { data: setsData } = reIds.length > 0
+    ? await supabase
+        .from("routine_exercise_sets")
+        .select("id, routine_exercise_id, set_number, reps, weight_kg")
+        .in("routine_exercise_id", reIds)
+        .order("set_number", { ascending: true })
+    : { data: [] };
+
+  const setsByRe: Record<string, typeof setsData> = {};
+  for (const s of setsData ?? []) {
+    if (!setsByRe[s.routine_exercise_id]) setsByRe[s.routine_exercise_id] = [];
+    setsByRe[s.routine_exercise_id].push(s);
+  }
+
   const boundDelete = deleteRoutine.bind(null, id);
+
+  const formatSetsInfo = (re: typeof routineExercises[0]) => {
+    const sets = setsByRe[re.id];
+    if (!sets || sets.length === 0) {
+      return `Series: ${re.sets} · ${re.reps ?? re.time ?? "-"}`;
+    }
+    const parts = sets.map((s) => {
+      let label = `${s.reps ?? "-"} reps`;
+      if (s.weight_kg != null) label += ` @ ${s.weight_kg}kg`;
+      return `S${s.set_number}: ${label}`;
+    });
+    return parts.join(" | ");
+  };
 
   return (
     <section className="space-y-5">
@@ -57,17 +85,27 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           <p className="text-text-muted">Todavía no agregaste ejercicios.</p>
         ) : (
           <div className="space-y-2">
-            {routineExercises.map((re) => (
-              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={re.id}>
-                <div>
-                  <p className="font-bold">{(re.exercises as unknown as { name: string } | null)?.name}</p>
-                  <p className="text-text-muted">
-                    {re.sets} x {re.reps ?? re.time ?? "-"} · descanso {re.rest}s
-                  </p>
+            {routineExercises.map((re) => {
+              const ex = re.exercises as unknown as { name: string; focus: string; rm: number | null } | null;
+              return (
+                <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={re.id}>
+                  <div>
+                    <p className="font-bold">{ex?.name}</p>
+                    <p className="text-xs text-text-muted">
+                      {formatSetsInfo(re)} · descanso {re.rest}s
+                      {re.intensity_pct != null && ` · ${re.intensity_pct}%`}
+                    </p>
+                    {ex?.rm && (
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-text-muted">
+                        <Dumbbell size={10} strokeWidth={2.5} />
+                        RM: {ex.rm}
+                      </p>
+                    )}
+                  </div>
+                  <DeleteButton action={removeExerciseFromRoutine.bind(null, id, re.id)} confirmMessage="¿Quitar este ejercicio de la rutina?" />
                 </div>
-                <DeleteButton action={removeExerciseFromRoutine.bind(null, id, re.id)} confirmMessage="¿Quitar este ejercicio de la rutina?" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </article>
@@ -86,27 +124,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
             .
           </p>
         ) : (
-          <form action={boundAdd} className="space-y-3">
-            <select className="field-input" defaultValue="" name="exercise_id" required>
-              <option disabled value="">
-                Elegí un ejercicio
-              </option>
-              {exercises.map((exercise) => (
-                <option key={exercise.id} value={exercise.id}>
-                  {exercise.name}
-                </option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-3">
-              <input className="field-input" name="sets" placeholder="Series" type="number" defaultValue={3} />
-              <input className="field-input" name="rest" placeholder="Descanso (seg)" type="number" defaultValue={60} />
-              <input className="field-input" name="reps" placeholder="Repeticiones" type="number" />
-              <input className="field-input" name="time" placeholder="Tiempo (ej: 45 seg)" type="text" />
-            </div>
-            <button className="secondary-button w-full" type="submit">
-              Agregar a la rutina
-            </button>
-          </form>
+          <AddExerciseForm routineId={id} exercises={exercises} />
         )}
       </article>
     </section>

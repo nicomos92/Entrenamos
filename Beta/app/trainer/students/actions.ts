@@ -147,6 +147,50 @@ export async function assignRoutineToStudent(studentId: string, routineId: strin
   revalidatePath("/trainer/students");
 }
 
+export async function saveFeeConfig(studentId: string, _prevState: FormState, formData: FormData): Promise<FormState> {
+  const feeAmountRaw = String(formData.get("fee_amount") ?? "").trim();
+  const feeDueDayRaw = String(formData.get("fee_due_day") ?? "").trim();
+
+  const updateData: Record<string, number | null> = {};
+  if (feeAmountRaw) updateData.fee_amount = Math.max(0, Number(feeAmountRaw));
+  else updateData.fee_amount = null;
+  if (feeDueDayRaw) updateData.fee_due_day = Math.max(1, Math.min(31, Number(feeDueDayRaw)));
+  else updateData.fee_due_day = null;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("students").update(updateData).eq("profile_id", studentId);
+
+  if (error) return { error: "No se pudo guardar la configuración de cuota." };
+
+  revalidatePath(`/trainer/students/${studentId}`);
+  return { success: true, message: "Cuota actualizada.", error: null };
+}
+
+export async function registerPayment(studentId: string, _prevState: FormState, formData: FormData): Promise<FormState> {
+  const amountRaw = String(formData.get("amount") ?? "").trim();
+  const periodMonth = String(formData.get("period_month") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!amountRaw || !periodMonth) return { error: "Completá el monto y el período." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.from("payments").insert({
+    student_id: studentId,
+    amount: Math.max(0, Number(amountRaw)),
+    period_month: periodMonth,
+    trainer_id: user.id,
+    notes,
+  });
+
+  if (error) return { error: "No se pudo registrar el pago." };
+
+  revalidatePath(`/trainer/students/${studentId}`);
+  return { success: true, message: "Pago registrado.", error: null };
+}
+
 export async function logMetricForStudent(
   studentId: string,
   _prevState: FormState,

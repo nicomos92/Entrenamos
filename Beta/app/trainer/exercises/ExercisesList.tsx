@@ -12,6 +12,7 @@ interface ExerciseView {
   focus: string;
   description: string | null;
   image_url: string | null;
+  rm: number | null;
 }
 
 export function ExercisesList({ exercises }: { exercises: ExerciseView[] }) {
@@ -36,13 +37,14 @@ export function ExercisesList({ exercises }: { exercises: ExerciseView[] }) {
                   <ImageIcon size={16} className="text-text-muted" strokeWidth={2} />
                 </div>
               )}
-              <div>
-                <p className="font-bold">{exercise.name}</p>
-                <p className="text-sm text-text-muted">
-                  {exercise.focus || "Sin grupo"}
-                  {exercise.description ? ` · ${exercise.description.slice(0, 60)}${exercise.description.length > 60 ? "…" : ""}` : ""}
-                </p>
-              </div>
+                <div>
+                  <p className="font-bold">{exercise.name}</p>
+                  <p className="text-sm text-text-muted">
+                    {exercise.focus || "Sin grupo"}
+                    {exercise.rm ? ` · RM: ${exercise.rm} reps` : ""}
+                    {exercise.description ? ` · ${exercise.description.slice(0, 40)}${exercise.description.length > 40 ? "…" : ""}` : ""}
+                  </p>
+                </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Link

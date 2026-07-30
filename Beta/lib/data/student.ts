@@ -4,6 +4,12 @@ import { safeGet } from "@/lib/utils/safe";
 
 type Client = SupabaseClient<Database>;
 
+export interface AssignedSetConfig {
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+}
+
 export interface AssignedExercise {
   id: string;
   exerciseId: string;
@@ -13,6 +19,8 @@ export interface AssignedExercise {
   reps: number | null;
   time: string | null;
   rest: number;
+  intensityPct: number | null;
+  setsConfig: AssignedSetConfig[];
   imageUrl: string | null;
   videoUrl: string | null;
 }
@@ -41,9 +49,29 @@ export async function getActiveAssignment(supabase: Client, studentId: string): 
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("id, exercise_id, sets, reps, time, rest, order_index, exercises(name, focus, image_url, video_url)")
+    .select("id, exercise_id, sets, reps, time, rest, order_index, intensity_pct, exercises(name, focus, image_url, video_url)")
     .eq("routine_id", assignment.routine_id)
     .order("order_index", { ascending: true });
+
+  const exerciseIds = (routineExercises ?? []).map((re) => re.id);
+
+  const { data: setsData } = exerciseIds.length > 0
+    ? await supabase
+        .from("routine_exercise_sets")
+        .select("routine_exercise_id, set_number, reps, weight_kg")
+        .in("routine_exercise_id", exerciseIds)
+        .order("set_number", { ascending: true })
+    : { data: [] };
+
+  const setsByExercise: Record<string, { setNumber: number; reps: number | null; weightKg: number | null }[]> = {};
+  for (const s of setsData ?? []) {
+    if (!setsByExercise[s.routine_exercise_id]) setsByExercise[s.routine_exercise_id] = [];
+    setsByExercise[s.routine_exercise_id].push({
+      setNumber: s.set_number,
+      reps: s.reps,
+      weightKg: s.weight_kg,
+    });
+  }
 
   return {
     assignmentId: assignment.id,
@@ -62,6 +90,8 @@ export async function getActiveAssignment(supabase: Client, studentId: string): 
         reps: re.reps,
         time: re.time,
         rest: re.rest,
+        intensityPct: re.intensity_pct,
+        setsConfig: setsByExercise[re.id] ?? [],
         imageUrl: ex?.image_url ?? null,
         videoUrl: ex?.video_url ?? null,
       };

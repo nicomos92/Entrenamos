@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
-import { Repeat, Timer, Gauge, CheckCircle2, ArrowRight, Star, ImageIcon, Video, SkipForward, MessageSquareText } from "lucide-react";
+import { Repeat, Timer, Gauge, CheckCircle2, ArrowRight, Star, ImageIcon, Video, SkipForward, MessageSquareText, Dumbbell } from "lucide-react";
 import { Metric } from "@/app/components/shared/Metric";
 import { finishSession } from "@/app/student/workout/actions";
 import type { AssignedRoutine } from "@/lib/data/student";
@@ -40,17 +40,21 @@ function RestTimer({ rest, onFinish }: { rest: number; onFinish: () => void }) {
 
 function FeedbackForm({
   plannedSets,
+  defaultSets,
   onSubmit,
   onSkip,
 }: {
   plannedSets: number;
+  defaultSets: { weightKg: string; reps: string }[];
   onSubmit: (data: ExerciseFeedback) => void;
   onSkip: () => void;
 }) {
   const [difficulty, setDifficulty] = useState(3);
   const [notes, setNotes] = useState("");
   const [sets, setSets] = useState(
-    Array.from({ length: plannedSets }, (_, i) => ({ weightKg: "", reps: "" }))
+    defaultSets.length === plannedSets
+      ? defaultSets
+      : Array.from({ length: plannedSets }, (_, i) => defaultSets[i] ?? { weightKg: "", reps: "" })
   );
 
   const updateSet = (index: number, field: "weightKg" | "reps", value: string) => {
@@ -254,6 +258,26 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
 
   const isCompleted = completedIds.includes(exercise?.exerciseId);
 
+  const exerciseSetsLabel = (() => {
+    if (exercise.setsConfig.length > 0) {
+      return exercise.setsConfig
+        .map((s) => {
+          let label = `S${s.setNumber}: ${s.reps ?? "-"}`;
+          if (s.weightKg != null) label += ` @ ${s.weightKg}kg`;
+          return label;
+        })
+        .join(" · ");
+    }
+    return `${exercise.sets} x ${exercise.reps ?? exercise.time ?? "-"}`;
+  })();
+
+  const defaultSets = exercise.setsConfig.length > 0
+    ? exercise.setsConfig.map((s) => ({
+        weightKg: s.weightKg != null ? String(s.weightKg) : "",
+        reps: s.reps != null ? String(s.reps) : "",
+      }))
+    : Array.from({ length: exercise.sets }, () => ({ weightKg: "", reps: "" }));
+
   return (
     <section className="space-y-6">
       <div className="flex items-end justify-between">
@@ -268,7 +292,8 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
 
       {showFeedback ? (
         <FeedbackForm
-          plannedSets={exercise?.sets ?? 3}
+          plannedSets={exercise.sets}
+          defaultSets={defaultSets}
           onSubmit={handleConfirmFeedback}
           onSkip={handleSkipFeedback}
         />
@@ -313,8 +338,19 @@ export function WorkoutClient({ assignment }: { assignment: AssignedRoutine }) {
             )}
 
             <div className="grid grid-cols-2 gap-3 p-5">
-              <Metric icon={<Repeat size={16} strokeWidth={2.25} />} label="Series" value={`${exercise.sets} x ${exercise.reps ?? exercise.time ?? "-"}`} />
+              <Metric icon={<Repeat size={16} strokeWidth={2.25} />} label="Series" value={`${exercise.sets}`} />
               <Metric icon={<Timer size={16} strokeWidth={2.25} />} label="Descanso" value={`${exercise.rest} seg`} />
+            </div>
+
+            <div className="px-5 pb-3">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-text-muted">
+                <Dumbbell size={11} strokeWidth={2.5} />
+                Reps por serie
+              </p>
+              <p className="mt-1 text-sm font-bold text-primary">{exerciseSetsLabel}</p>
+              {exercise.intensityPct != null && (
+                <p className="text-xs text-text-muted">Intensidad: {exercise.intensityPct}%</p>
+              )}
             </div>
 
             {isCompleted && feedback[exercise.exerciseId] && (

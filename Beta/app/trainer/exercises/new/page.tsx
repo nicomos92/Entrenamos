@@ -26,6 +26,7 @@ export default function NewExercisePage() {
             { name: "name", label: "Nombre", type: "text" },
             { name: "description", label: "Descripción", type: "textarea", required: false },
             { name: "focus", label: "Grupo / Foco (ej: Piernas, Core)", type: "text", required: false },
+            { name: "rm", label: "Repetición máxima (RM)", type: "number", required: false },
             { name: "image", label: "Imagen de ejemplo", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
             { name: "image_url", label: "O URL de imagen", type: "text", required: false },
             { name: "video_url", label: "URL de video demostrativo", type: "text", required: false },

@@ -49,6 +49,7 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
             { name: "name", label: "Nombre", type: "text", defaultValue: exercise.name },
             { name: "description", label: "Descripción", type: "textarea", required: false, defaultValue: exercise.description ?? "" },
             { name: "focus", label: "Grupo / Foco", type: "text", defaultValue: exercise.focus, required: false },
+            { name: "rm", label: "Repetición máxima (RM)", type: "number", required: false, defaultValue: exercise.rm != null ? String(exercise.rm) : "" },
             { name: "image", label: "Cambiar imagen", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
             { name: "image_url", label: "O URL de imagen", type: "text", defaultValue: exercise.image_url ?? "", required: false },
             { name: "video_url", label: "URL de video demostrativo", type: "text", defaultValue: exercise.video_url ?? "", required: false },

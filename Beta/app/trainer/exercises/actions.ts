@@ -11,6 +11,7 @@ function parseExerciseFields(formData: FormData) {
   const focus = String(formData.get("focus") ?? "").trim();
   const imageUrl = String(formData.get("image_url") ?? "").trim() || null;
   const videoUrl = String(formData.get("video_url") ?? "").trim() || null;
+  const rmRaw = String(formData.get("rm") ?? "").trim();
 
   return {
     name,
@@ -18,6 +19,7 @@ function parseExerciseFields(formData: FormData) {
     focus,
     image_url: imageUrl,
     video_url: videoUrl,
+    rm: rmRaw ? Math.max(1, Number(rmRaw)) : null,
   };
 }
 

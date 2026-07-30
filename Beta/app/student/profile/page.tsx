@@ -8,6 +8,18 @@ import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
 import { updateFullName, logBodyMetric, updateMyProfile } from "@/app/student/profile/actions";
 import { DIAS_SEMANA } from "@/lib/supabase/database.types";
 
+function calcularBMI(weightKg: number, heightCm: number): { value: number; label: string } | null {
+  if (!weightKg || !heightCm) return null;
+  const bmi = weightKg / ((heightCm / 100) * (heightCm / 100));
+  const rounded = Math.round(bmi * 10) / 10;
+  let label: string;
+  if (rounded < 18.5) label = "Bajo peso";
+  else if (rounded < 25) label = "Normal";
+  else if (rounded < 30) label = "Sobrepeso";
+  else label = "Obesidad";
+  return { value: rounded, label };
+}
+
 const OBJETIVOS = [
   { value: "Hipertrofia", label: "Hipertrofia" },
   { value: "Descenso de grasa", label: "Descenso de grasa" },
@@ -112,6 +124,10 @@ export default async function StudentProfilePage() {
             <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Altura" value={latest.heightCm != null ? `${latest.heightCm} cm` : "-"} />
             <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Grasa corporal" value={latest.bodyFatPct != null ? `${latest.bodyFatPct}%` : "-"} />
             <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Masa muscular" value={latest.muscleMassKg != null ? `${latest.muscleMassKg} kg` : "-"} />
+            {(() => {
+              const bmi = calcularBMI(latest.weightKg ?? 0, latest.heightCm ?? 0);
+              return bmi ? <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="IMC" value={`${bmi.value} (${bmi.label})`} /> : null;
+            })()}
           </div>
         ) : (
           <p className="mb-4 text-text-muted">Todavía no registraste ninguna medición.</p>

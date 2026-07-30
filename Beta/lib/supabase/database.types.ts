@@ -62,6 +62,8 @@ export interface Database {
           fecha_inicio: string | null;
           fecha_nacimiento: string | null;
           sexo: string | null;
+          fee_amount: number | null;
+          fee_due_day: number | null;
           created_at: string;
         };
         Insert: {
@@ -73,6 +75,8 @@ export interface Database {
           fecha_inicio?: string | null;
           fecha_nacimiento?: string | null;
           sexo?: string | null;
+          fee_amount?: number | null;
+          fee_due_day?: number | null;
           created_at?: string;
         };
         Update: Partial<{
@@ -82,6 +86,8 @@ export interface Database {
           fecha_inicio: string | null;
           fecha_nacimiento: string | null;
           sexo: string | null;
+          fee_amount: number | null;
+          fee_due_day: number | null;
         }>;
         Relationships: [
           {
@@ -109,6 +115,7 @@ export interface Database {
           focus: string;
           image_url: string | null;
           video_url: string | null;
+          rm: number | null;
           created_at: string;
         };
         Insert: {
@@ -119,6 +126,7 @@ export interface Database {
           focus?: string;
           image_url?: string | null;
           video_url?: string | null;
+          rm?: number | null;
           created_at?: string;
         };
         Update: Partial<{
@@ -127,6 +135,7 @@ export interface Database {
           focus: string;
           image_url: string | null;
           video_url: string | null;
+          rm: number | null;
         }>;
         Relationships: [
           {
@@ -180,6 +189,7 @@ export interface Database {
           reps: number | null;
           time: string | null;
           rest: number;
+          intensity_pct: number | null;
           created_at: string;
         };
         Insert: {
@@ -191,6 +201,7 @@ export interface Database {
           reps?: number | null;
           time?: string | null;
           rest?: number;
+          intensity_pct?: number | null;
           created_at?: string;
         };
         Update: Partial<{
@@ -199,6 +210,7 @@ export interface Database {
           reps: number | null;
           time: string | null;
           rest: number;
+          intensity_pct: number | null;
         }>;
         Relationships: [
           {
@@ -213,6 +225,38 @@ export interface Database {
             columns: ["exercise_id"];
             isOneToOne: false;
             referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      routine_exercise_sets: {
+        Row: {
+          id: string;
+          routine_exercise_id: string;
+          set_number: number;
+          reps: number | null;
+          weight_kg: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          routine_exercise_id: string;
+          set_number: number;
+          reps?: number | null;
+          weight_kg?: number | null;
+          created_at?: string;
+        };
+        Update: Partial<{
+          set_number: number;
+          reps: number | null;
+          weight_kg: number | null;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "routine_exercise_sets_routine_exercise_id_fkey";
+            columns: ["routine_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "routine_exercises";
             referencedColumns: ["id"];
           },
         ];
@@ -629,6 +673,46 @@ export interface Database {
             columns: ["session_exercise_id"];
             isOneToOne: false;
             referencedRelation: "session_exercises";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          student_id: string;
+          amount: number;
+          period_month: string;
+          paid_at: string;
+          trainer_id: string;
+          notes: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          amount: number;
+          period_month: string;
+          paid_at?: string;
+          trainer_id: string;
+          notes?: string;
+        };
+        Update: Partial<{
+          amount: number;
+          notes: string;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "payments_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["profile_id"];
+          },
+          {
+            foreignKeyName: "payments_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
