@@ -9,63 +9,33 @@ import type { FormState } from "@/lib/types/form";
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
 function getNextDayOfWeek(diaSemana: number, time: string, tzOffset: number): Date {
-  const now = new Date();
-  const target = new Date(now);
-  const currentDay = now.getDay();
+  const utcNow = new Date();
+  const localNow = new Date(utcNow.getTime() - tzOffset * 60 * 1000);
+  const target = new Date(localNow);
+  const currentDay = localNow.getDay();
   let diff = diaSemana - currentDay;
-  if (diff <= 0) diff += 7;
-  target.setDate(target.getDate() + diff);
   const [hr, mi] = time.split(":").map(Number);
+
   target.setHours(hr, mi, 0, 0);
-  return new Date(target.getTime() - tzOffset * 60 * 1000);
+
+  if (diff < 0) {
+    diff += 7;
+    target.setDate(localNow.getDate() + diff);
+  } else if (diff > 0) {
+    target.setDate(localNow.getDate() + diff);
+  }
+  // diff === 0: mismo día — si la hora ya pasó, ir a la próxima semana
+  if (diff === 0 && target.getTime() <= localNow.getTime()) {
+    target.setDate(target.getDate() + 7);
+  }
+
+  return target;
 }
 
 function getScheduledAt(date: string, time: string, tzOffset: number): Date {
   const [yr, mo, dy] = date.split("-").map(Number);
   const [hr, mi] = time.split(":").map(Number);
   return new Date(Date.UTC(yr, mo - 1, dy, hr, mi) + tzOffset * 60 * 1000);
-}
-
-async function checkOverlap(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  trainerId: string,
-  scheduledAt: Date,
-  durationMinutes: number,
-  excludeId?: string
-): Promise<{ studentName: string; scheduledAt: string } | null> {
-  const end = new Date(scheduledAt.getTime() + durationMinutes * 60000).toISOString();
-
-  let query = supabase
-    .from("appointments")
-    .select("student_id, scheduled_at, duration_minutes")
-    .eq("trainer_id", trainerId)
-    .neq("status", "cancelado")
-    .lt("scheduled_at", end);
-
-  if (excludeId) {
-    query = query.neq("id", excludeId);
-  }
-
-  const { data } = await query;
-
-  const overlapping = (data ?? []).find((appt) => {
-    const apptStart = new Date(appt.scheduled_at).getTime();
-    const apptEnd = apptStart + (appt.duration_minutes ?? 60) * 60000;
-    return apptEnd > scheduledAt.getTime();
-  });
-
-  if (!overlapping) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", overlapping.student_id)
-    .maybeSingle();
-
-  return {
-    studentName: profile?.full_name ?? "otro alumno",
-    scheduledAt: overlapping.scheduled_at,
-  };
 }
 
 function getRecurringDates(dateStr: string, rule: string, maxWeeks = 8): string[] {
@@ -107,12 +77,6 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
       : null;
 
   if (!scheduledAt) return { error: "Completa día y hora." };
-
-  const overlap = await checkOverlap(supabase, user.id, scheduledAt, durationMinutes);
-  if (overlap) {
-    const overlapTime = new Date(overlap.scheduledAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-    return { error: `Ya tenés un turno con ${overlap.studentName} a las ${overlapTime}. Elegí otro horario.` };
-  }
 
   // Generar 8 semanas de turnos
   const inserts = [];
@@ -183,12 +147,6 @@ export async function updateAppointment(_prevState: FormState, formData: FormDat
   if (!user) redirect("/login");
 
   const scheduledAt = getScheduledAt(date, time, timezoneOffsetMinutes);
-
-  const overlap = await checkOverlap(supabase, user.id, scheduledAt, durationMinutes, appointmentId);
-  if (overlap) {
-    const overlapTime = new Date(overlap.scheduledAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-    return { error: `Ya tenés un turno con ${overlap.studentName} a las ${overlapTime}. Elegí otro horario.` };
-  }
 
   const { data: existing } = await supabase
     .from("appointments")
@@ -338,9 +296,6 @@ export async function rescheduleAppointment(appointmentId: string, newScheduledA
   const newDate = new Date(newScheduledAt);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
-
-  const overlap = await checkOverlap(supabase, user.id, newDate, appt.duration_minutes ?? 60, appointmentId);
-  if (overlap) throw new Error("Horario ocupado");
 
   await supabase.from("appointments").update({ scheduled_at: newScheduledAt }).eq("id", appointmentId);
 
