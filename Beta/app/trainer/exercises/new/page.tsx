@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Dumbbell } from "lucide-react";
-import { ActionForm } from "@/app/components/shared/ActionForm";
 import { IconBadge } from "@/app/components/shared/IconBadge";
+import { ExerciseForm } from "@/app/trainer/exercises/ExerciseForm";
 import { createExercise } from "@/app/trainer/exercises/actions";
 
 export default function NewExercisePage() {
@@ -19,19 +19,7 @@ export default function NewExercisePage() {
       </div>
 
       <div className="glass-card rounded-[2rem] p-6">
-        <ActionForm
-          action={createExercise}
-          submitLabel="Crear ejercicio"
-          fields={[
-            { name: "name", label: "Nombre", type: "text" },
-            { name: "description", label: "Descripción", type: "textarea", required: false },
-            { name: "focus", label: "Grupo / Foco (ej: Piernas, Core)", type: "text", required: false },
-            { name: "rm", label: "Repetición máxima (RM)", type: "number", required: false },
-            { name: "image", label: "Imagen de ejemplo", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
-            { name: "image_url", label: "O URL de imagen", type: "text", required: false },
-            { name: "video_url", label: "URL de video demostrativo", type: "text", required: false },
-          ]}
-        />
+        <ExerciseForm action={createExercise} submitLabel="Crear ejercicio" />
       </div>
     </section>
   );

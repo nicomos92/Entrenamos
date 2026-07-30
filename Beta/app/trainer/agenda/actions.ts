@@ -6,6 +6,20 @@ import { createClient } from "@/lib/supabase/server";
 import { createNotification } from "@/lib/notifications";
 import type { FormState } from "@/lib/types/form";
 
+const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+function getNextDayOfWeek(diaSemana: number, time: string, tzOffset: number): Date {
+  const now = new Date();
+  const target = new Date(now);
+  const currentDay = now.getDay();
+  let diff = diaSemana - currentDay;
+  if (diff <= 0) diff += 7;
+  target.setDate(target.getDate() + diff);
+  const [hr, mi] = time.split(":").map(Number);
+  target.setHours(hr, mi, 0, 0);
+  return new Date(target.getTime() - tzOffset * 60 * 1000);
+}
+
 function getScheduledAt(date: string, time: string, tzOffset: number): Date {
   const [yr, mo, dy] = date.split("-").map(Number);
   const [hr, mi] = time.split(":").map(Number);
@@ -70,14 +84,14 @@ function getRecurringDates(dateStr: string, rule: string, maxWeeks = 8): string[
 export async function createAppointment(_prevState: FormState, formData: FormData): Promise<FormState> {
   const studentId = String(formData.get("student_id") ?? "");
   const date = String(formData.get("date") ?? "");
+  const diaSemanaRaw = String(formData.get("dia_semana") ?? "");
   const time = String(formData.get("time") ?? "");
   const notes = String(formData.get("notes") ?? "").trim();
   const durationRaw = String(formData.get("duration_minutes") ?? "60").trim();
   const durationMinutes = Math.max(15, parseInt(durationRaw, 10) || 60);
-  const recurRule = String(formData.get("recurring") ?? "none");
   const timezoneOffsetMinutes = parseInt(String(formData.get("timezone_offset_minutes") ?? "0"), 10);
 
-  if (!studentId || !date || !time) return { error: "Completa alumno, fecha y hora." };
+  if (!studentId || !time) return { error: "Completa alumno, día y hora." };
 
   const supabase = await createClient();
   const {
@@ -85,7 +99,14 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const scheduledAt = getScheduledAt(date, time, timezoneOffsetMinutes);
+  // Si se envía dia_semana calcular próxima fecha, sino usar date (backwards compat)
+  const scheduledAt = diaSemanaRaw
+    ? getNextDayOfWeek(parseInt(diaSemanaRaw, 10), time, timezoneOffsetMinutes)
+    : date
+      ? getScheduledAt(date, time, timezoneOffsetMinutes)
+      : null;
+
+  if (!scheduledAt) return { error: "Completa día y hora." };
 
   const overlap = await checkOverlap(supabase, user.id, scheduledAt, durationMinutes);
   if (overlap) {
@@ -93,21 +114,22 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
     return { error: `Ya tenés un turno con ${overlap.studentName} a las ${overlapTime}. Elegí otro horario.` };
   }
 
-  const recurringDates = getRecurringDates(date, recurRule);
-  const recurringGroupId = recurringDates.length > 1 ? crypto.randomUUID() : null;
-
-  const inserts = recurringDates.map((d, i) => {
-    const sched = getScheduledAt(d, time, timezoneOffsetMinutes);
-    return {
+  // Generar 8 semanas de turnos
+  const inserts = [];
+  const recurringGroupId = crypto.randomUUID();
+  for (let i = 0; i < 8; i++) {
+    const weekDate = new Date(scheduledAt);
+    weekDate.setDate(weekDate.getDate() + i * 7);
+    inserts.push({
       trainer_id: user.id,
       student_id: studentId,
-      scheduled_at: sched.toISOString(),
+      scheduled_at: weekDate.toISOString(),
       notes: i === 0 ? notes : "",
       duration_minutes: durationMinutes,
       recurring_group_id: recurringGroupId,
-      recurring_rule: recurringDates.length > 1 ? recurRule : null,
-    };
-  });
+      recurring_rule: "weekly",
+    });
+  }
 
   const { error } = await supabase.from("appointments").insert(inserts);
   if (error) return { error: "No se pudo crear el turno." };
@@ -118,19 +140,17 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
     .eq("id", user.id)
     .single();
 
-  const notifTitle = recurringDates.length > 1
-    ? `Nuevos turnos agendados (${inserts.length} sesiones)`
-    : "Nuevo turno agendado";
-
   const scheduledLocal = scheduledAt.toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
   });
 
+  const diaLabel = DIAS[parseInt(diaSemanaRaw, 10)] ?? "";
+
   await createNotification({
     userId: studentId,
     type: "appointment_created",
-    title: notifTitle,
-    body: `${trainerProfile?.full_name ?? "Tu entrenador"} agendó un turno para el ${scheduledLocal} (${durationMinutes} min).`,
+    title: `Turno agendado (${inserts.length} sesiones)`,
+    body: `${trainerProfile?.full_name ?? "Tu entrenador"} agendó turnos los ${diaLabel} a las ${time} por las próximas 8 semanas.`,
     data: { appointmentId: inserts[0].scheduled_at },
   });
 
@@ -138,9 +158,7 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
   revalidatePath("/trainer");
   return {
     success: true,
-    message: inserts.length === 1
-      ? "Turno agendado."
-      : `${inserts.length} turnos agendados (cada ${recurRule === "weekly" ? "semana" : "2 semanas"}).`,
+    message: `${inserts.length} turnos agendados (${diaLabel} ${time}).`,
     error: null,
   };
 }

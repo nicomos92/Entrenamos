@@ -5,12 +5,14 @@ import { CalendarPlus, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { createAppointment, updateAppointment } from "@/app/trainer/agenda/actions";
 import type { FormState } from "@/lib/types/form";
 
+const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
 interface AppointmentFormProps {
   studentOptions: { id: string; name: string }[];
   editData?: {
     id: string;
     studentId: string;
-    date: string;
+    diaSemana: string;
     time: string;
     notes: string;
     durationMinutes: number;
@@ -44,20 +46,35 @@ export function AppointmentForm({ studentOptions, editData, onCancelEdit }: Appo
         <p className="text-text-muted">Necesitás al menos un alumno cargado para agendar un turno.</p>
       ) : (
         <form action={formAction} className="space-y-3">
-          <select className="field-input" defaultValue={editData?.studentId ?? ""} name="student_id" required>
-            <option disabled value="">
-              Elegí un alumno
-            </option>
-            {studentOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+          {isEditing && editData ? (
+            <input name="student_id" type="hidden" value={editData.studentId} />
+          ) : (
+            <select className="field-input" defaultValue="" name="student_id" required>
+              <option disabled value="">
+                Elegí un alumno
               </option>
-            ))}
-          </select>
+              {studentOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <input className="field-input" defaultValue={editData?.date ?? ""} name="date" required type="date" />
+            <select className="field-input" defaultValue={editData?.diaSemana ?? ""} name="dia_semana" required>
+              <option disabled value="">
+                Día
+              </option>
+              {DIAS.map((label, i) => (
+                <option key={i} value={i}>
+                  {label}
+                </option>
+              ))}
+            </select>
             <input className="field-input" defaultValue={editData?.time ?? ""} name="time" required type="time" />
           </div>
+
           <label className="block">
             <span className="mb-2 flex items-center gap-1.5 text-sm font-bold uppercase tracking-[0.18em] text-text-muted">
               <Clock size={13} strokeWidth={2.5} />

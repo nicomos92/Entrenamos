@@ -35,8 +35,8 @@ export function StudentAppointments({ appointments, studentId }: StudentAppointm
     ? {
         id: editAppt.id,
         studentId,
-        date: new Date(editAppt.scheduled_at).toISOString().slice(0, 10),
-        time: new Date(editAppt.scheduled_at).toISOString().slice(11, 16),
+        diaSemana: String(new Date(editAppt.scheduled_at).getDay()),
+        time: new Date(editAppt.scheduled_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }),
         durationMinutes: editAppt.duration_minutes ?? 60,
         notes: editAppt.notes,
       }

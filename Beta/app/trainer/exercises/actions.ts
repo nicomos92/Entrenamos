@@ -23,6 +23,22 @@ function parseExerciseFields(formData: FormData) {
   };
 }
 
+async function uploadFile(file: File, userId: string, bucket: string): Promise<string | null> {
+  const supabase = await createClient();
+  const ext = file.name.split(".").pop() ?? "png";
+  const fileName = `${userId}/${crypto.randomUUID()}.${ext}`;
+
+  const { error } = await supabase.storage.from(bucket).upload(fileName, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+
+  if (error) return null;
+
+  const { data: publicUrl } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  return publicUrl.publicUrl;
+}
+
 export async function createExercise(_prevState: FormState, formData: FormData): Promise<FormState> {
   const fields = parseExerciseFields(formData);
   if (!fields.name) return { error: "El ejercicio necesita un nombre." };
@@ -35,8 +51,14 @@ export async function createExercise(_prevState: FormState, formData: FormData):
 
   const imageFile = formData.get("image") as File | null;
   if (imageFile && imageFile.size > 0) {
-    const url = await uploadExerciseFile(imageFile, user.id);
+    const url = await uploadFile(imageFile, user.id, "exercise_media");
     if (url) fields.image_url = url;
+  }
+
+  const videoFile = formData.get("video") as File | null;
+  if (videoFile && videoFile.size > 0) {
+    const url = await uploadFile(videoFile, user.id, "exercise_media");
+    if (url) fields.video_url = url;
   }
 
   const { error } = await supabase.from("exercises").insert({ ...fields, trainer_id: user.id });
@@ -56,8 +78,14 @@ export async function updateExercise(exerciseId: string, _prevState: FormState, 
 
   const imageFile = formData.get("image") as File | null;
   if (imageFile && imageFile.size > 0) {
-    const url = await uploadExerciseFile(imageFile, user.id);
+    const url = await uploadFile(imageFile, user.id, "exercise_media");
     if (url) fields.image_url = url;
+  }
+
+  const videoFile = formData.get("video") as File | null;
+  if (videoFile && videoFile.size > 0) {
+    const url = await uploadFile(videoFile, user.id, "exercise_media");
+    if (url) fields.video_url = url;
   }
 
   const { error } = await supabase.from("exercises").update(fields).eq("id", exerciseId);
@@ -73,18 +101,4 @@ export async function deleteExercise(exerciseId: string) {
   revalidatePath("/trainer/exercises");
 }
 
-async function uploadExerciseFile(file: File, userId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const ext = file.name.split(".").pop() ?? "png";
-  const fileName = `${userId}/${crypto.randomUUID()}.${ext}`;
 
-  const { error } = await supabase.storage.from("exercise_media").upload(fileName, file, {
-    cacheControl: "3600",
-    upsert: false,
-  });
-
-  if (error) return null;
-
-  const { data: publicUrl } = supabase.storage.from("exercise_media").getPublicUrl(fileName);
-  return publicUrl.publicUrl;
-}

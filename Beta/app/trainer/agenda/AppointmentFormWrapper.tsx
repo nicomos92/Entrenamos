@@ -16,18 +16,23 @@ interface AppointmentFormWrapperProps {
   renderTrigger?: (onClick: () => void) => React.ReactNode;
 }
 
+function diaSemanaFromDate(dateStr: string): string {
+  return String(new Date(dateStr).getDay());
+}
+
+function timeFromDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 function parseEditData(data: NonNullable<AppointmentFormWrapperProps["editData"]>) {
-  const d = new Date(data.scheduledAt);
-  const date = d.toISOString().slice(0, 10);
-  const time = d.toISOString().slice(11, 16);
+  const time = timeFromDate(data.scheduledAt);
   return {
     id: data.id,
     studentId: data.studentId,
-    date,
+    diaSemana: diaSemanaFromDate(data.scheduledAt),
     time,
     durationMinutes: data.durationMinutes,
     notes: data.notes,
-    recurringRule: data.recurringRule,
   };
 }
 

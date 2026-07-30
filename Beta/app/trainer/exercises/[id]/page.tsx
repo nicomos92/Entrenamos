@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
-import { ActionForm } from "@/app/components/shared/ActionForm";
 import { IconBadge } from "@/app/components/shared/IconBadge";
+import { ExerciseForm } from "@/app/trainer/exercises/ExerciseForm";
 import { updateExercise } from "@/app/trainer/exercises/actions";
 
 export default async function EditExercisePage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,18 +42,17 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
           </div>
         )}
 
-        <ActionForm
+        <ExerciseForm
           action={boundUpdate}
           submitLabel="Guardar cambios"
-          fields={[
-            { name: "name", label: "Nombre", type: "text", defaultValue: exercise.name },
-            { name: "description", label: "Descripción", type: "textarea", required: false, defaultValue: exercise.description ?? "" },
-            { name: "focus", label: "Grupo / Foco", type: "text", defaultValue: exercise.focus, required: false },
-            { name: "rm", label: "Repetición máxima (RM)", type: "number", required: false, defaultValue: exercise.rm != null ? String(exercise.rm) : "" },
-            { name: "image", label: "Cambiar imagen", type: "file", required: false, placeholder: "image/png,image/jpeg,image/webp,image/gif" },
-            { name: "image_url", label: "O URL de imagen", type: "text", defaultValue: exercise.image_url ?? "", required: false },
-            { name: "video_url", label: "URL de video demostrativo", type: "text", defaultValue: exercise.video_url ?? "", required: false },
-          ]}
+          defaultValues={{
+            name: exercise.name,
+            description: exercise.description ?? "",
+            focus: exercise.focus,
+            rm: exercise.rm != null ? String(exercise.rm) : "",
+            image_url: exercise.image_url ?? "",
+            video_url: exercise.video_url ?? "",
+          }}
         />
       </div>
     </section>
