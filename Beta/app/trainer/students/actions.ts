@@ -151,7 +151,10 @@ export async function saveFeeConfig(studentId: string, _prevState: FormState, fo
   const feeAmountRaw = String(formData.get("fee_amount") ?? "").trim();
   const feeDueDayRaw = String(formData.get("fee_due_day") ?? "").trim();
 
-  const updateData: Record<string, number | null> = {};
+  const updateData: {
+    fee_amount?: number | null;
+    fee_due_day?: number | null;
+  } = {};
   if (feeAmountRaw) updateData.fee_amount = Math.max(0, Number(feeAmountRaw));
   else updateData.fee_amount = null;
   if (feeDueDayRaw) updateData.fee_due_day = Math.max(1, Math.min(31, Number(feeDueDayRaw)));

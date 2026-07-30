@@ -29,24 +29,26 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
     getExercises(supabase, user.id),
   ]);
 
-  const reIds = (routineExercises ?? []).map((re) => re.id);
-  const { data: setsData } = reIds.length > 0
+  const safeRoutineExercises = routineExercises ?? [];
+  const reIds = safeRoutineExercises.map((re) => re.id);
+  const { data: rawSetsData } = reIds.length > 0
     ? await supabase
         .from("routine_exercise_sets")
         .select("id, routine_exercise_id, set_number, reps, weight_kg")
         .in("routine_exercise_id", reIds)
         .order("set_number", { ascending: true })
     : { data: [] };
+  const setsData = rawSetsData ?? [];
 
   const setsByRe: Record<string, typeof setsData> = {};
-  for (const s of setsData ?? []) {
+  for (const s of setsData) {
     if (!setsByRe[s.routine_exercise_id]) setsByRe[s.routine_exercise_id] = [];
     setsByRe[s.routine_exercise_id].push(s);
   }
 
   const boundDelete = deleteRoutine.bind(null, id);
 
-  const formatSetsInfo = (re: typeof routineExercises[0]) => {
+  const formatSetsInfo = (re: typeof safeRoutineExercises[0]) => {
     const sets = setsByRe[re.id];
     if (!sets || sets.length === 0) {
       return `Series: ${re.sets} · ${re.reps ?? re.time ?? "-"}`;
@@ -81,11 +83,11 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
           <ListChecks size={14} strokeWidth={2.5} />
           Ejercicios
         </p>
-        {!routineExercises || routineExercises.length === 0 ? (
+        {safeRoutineExercises.length === 0 ? (
           <p className="text-text-muted">Todavía no agregaste ejercicios.</p>
         ) : (
           <div className="space-y-2">
-            {routineExercises.map((re) => {
+            {safeRoutineExercises.map((re) => {
               const ex = re.exercises as unknown as { name: string; focus: string; rm: number | null } | null;
               return (
                 <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={re.id}>
