@@ -4,21 +4,9 @@ import { Metric } from "@/app/components/shared/Metric";
 import { ActionForm } from "@/app/components/shared/ActionForm";
 import { TrendSparkline } from "@/app/components/shared/TrendSparkline";
 import { SectionHeader } from "@/app/components/shared/SectionHeader";
-import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
+import { getBodyMetrics, buildTrend, calcBmi } from "@/lib/data/bodyMetrics";
 import { updateFullName, logBodyMetric, updateMyProfile } from "@/app/student/profile/actions";
 import { DIAS_SEMANA } from "@/lib/supabase/database.types";
-
-function calcularBMI(weightKg: number, heightCm: number): { value: number; label: string } | null {
-  if (!weightKg || !heightCm) return null;
-  const bmi = weightKg / ((heightCm / 100) * (heightCm / 100));
-  const rounded = Math.round(bmi * 10) / 10;
-  let label: string;
-  if (rounded < 18.5) label = "Bajo peso";
-  else if (rounded < 25) label = "Normal";
-  else if (rounded < 30) label = "Sobrepeso";
-  else label = "Obesidad";
-  return { value: rounded, label };
-}
 
 const OBJETIVOS = [
   { value: "Hipertrofia", label: "Hipertrofia" },
@@ -125,7 +113,7 @@ export default async function StudentProfilePage() {
             <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Grasa corporal" value={latest.bodyFatPct != null ? `${latest.bodyFatPct}%` : "-"} />
             <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="Masa muscular" value={latest.muscleMassKg != null ? `${latest.muscleMassKg} kg` : "-"} />
             {(() => {
-              const bmi = calcularBMI(latest.weightKg ?? 0, latest.heightCm ?? 0);
+              const bmi = calcBmi(latest?.weightKg, latest?.heightCm);
               return bmi ? <Metric icon={<Scale size={16} strokeWidth={2.25} />} label="IMC" value={`${bmi.value} (${bmi.label})`} /> : null;
             })()}
           </div>
@@ -144,6 +132,7 @@ export default async function StudentProfilePage() {
           action={logBodyMetric}
           submitLabel="Guardar medición"
           fields={[
+            { name: "recorded_at", label: "Fecha de medición", type: "date", required: false, defaultValue: new Date().toISOString().slice(0, 10) },
             { name: "weight_kg", label: "Peso (kg)", type: "number", required: false },
             { name: "height_cm", label: "Altura (cm)", type: "number", required: false },
             { name: "body_fat_pct", label: "Grasa corporal (%)", type: "number", required: false },
@@ -155,15 +144,19 @@ export default async function StudentProfilePage() {
         {metrics.length > 0 && (
           <div className="mt-5 space-y-2">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-text-muted">Historial</p>
-            {metrics.slice(0, 6).map((entry) => (
-              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={entry.id}>
-                <span className="text-text-muted">{new Date(entry.recordedAt).toLocaleDateString("es-AR")}</span>
-                <span className="font-bold">
-                  {entry.weightKg != null ? `${entry.weightKg} kg` : "-"}
-                  {entry.bodyFatPct != null ? ` · ${entry.bodyFatPct}% grasa` : ""}
-                </span>
-              </div>
-            ))}
+            {metrics.slice(0, 6).map((entry) => {
+              const bmi = calcBmi(entry.weightKg, entry.heightCm);
+              return (
+                <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={entry.id}>
+                  <span className="text-text-muted">{new Date(entry.recordedAt).toLocaleDateString("es-AR")}</span>
+                  <span className="font-bold">
+                    {entry.weightKg != null ? `${entry.weightKg} kg` : "-"}
+                    {entry.bodyFatPct != null ? ` · ${entry.bodyFatPct}% grasa` : ""}
+                    {bmi ? ` · IMC ${bmi.value}` : ""}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </article>

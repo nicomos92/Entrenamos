@@ -8,60 +8,24 @@ import type { FormState } from "@/lib/types/form";
 
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-function getNextDayOfWeek(diaSemana: number, time: string, tzOffset: number): Date {
-  const utcNow = new Date();
-  const localNow = new Date(utcNow.getTime() - tzOffset * 60 * 1000);
-  const target = new Date(localNow);
-  const currentDay = localNow.getDay();
-  let diff = diaSemana - currentDay;
-  const [hr, mi] = time.split(":").map(Number);
-
-  target.setHours(hr, mi, 0, 0);
-
-  if (diff < 0) {
-    diff += 7;
-    target.setDate(localNow.getDate() + diff);
-  } else if (diff > 0) {
-    target.setDate(localNow.getDate() + diff);
-  }
-  // diff === 0: mismo día — si la hora ya pasó, ir a la próxima semana
-  if (diff === 0 && target.getTime() <= localNow.getTime()) {
-    target.setDate(target.getDate() + 7);
-  }
-
-  return target;
+function parseDiaSemana(value: FormDataEntryValue | null): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 6 ? n : null;
 }
 
-function getScheduledAt(date: string, time: string, tzOffset: number): Date {
-  const [yr, mo, dy] = date.split("-").map(Number);
-  const [hr, mi] = time.split(":").map(Number);
-  return new Date(Date.UTC(yr, mo - 1, dy, hr, mi) + tzOffset * 60 * 1000);
+function normalizeHora(value: FormDataEntryValue | null): string | null {
+  const hora = String(value ?? "").trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora) ? hora : null;
 }
 
-function getRecurringDates(dateStr: string, rule: string, maxWeeks = 8): string[] {
-  if (!rule || rule === "none") return [dateStr];
-  const dates: string[] = [dateStr];
-  const base = new Date(dateStr);
-  const intervalDays = rule === "weekly" ? 7 : 14;
-  for (let i = 1; i < maxWeeks; i++) {
-    const next = new Date(base);
-    next.setDate(next.getDate() + i * intervalDays);
-    dates.push(next.toISOString().slice(0, 10));
+export async function addScheduleEntry(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const studentId = String(formData.get("student_id") ?? "").trim();
+  const diaSemana = parseDiaSemana(formData.get("dia_semana"));
+  const hora = normalizeHora(formData.get("time"));
+
+  if (!studentId || diaSemana == null || !hora) {
+    return { error: "Completá alumno, día y hora." };
   }
-  return dates;
-}
-
-export async function createAppointment(_prevState: FormState, formData: FormData): Promise<FormState> {
-  const studentId = String(formData.get("student_id") ?? "");
-  const date = String(formData.get("date") ?? "");
-  const diaSemanaRaw = String(formData.get("dia_semana") ?? "");
-  const time = String(formData.get("time") ?? "");
-  const notes = String(formData.get("notes") ?? "").trim();
-  const durationRaw = String(formData.get("duration_minutes") ?? "60").trim();
-  const durationMinutes = Math.max(15, parseInt(durationRaw, 10) || 60);
-  const timezoneOffsetMinutes = parseInt(String(formData.get("timezone_offset_minutes") ?? "0"), 10);
-
-  if (!studentId || !time) return { error: "Completa alumno, día y hora." };
 
   const supabase = await createClient();
   const {
@@ -69,34 +33,13 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Si se envía dia_semana calcular próxima fecha, sino usar date (backwards compat)
-  const scheduledAt = diaSemanaRaw
-    ? getNextDayOfWeek(parseInt(diaSemanaRaw, 10), time, timezoneOffsetMinutes)
-    : date
-      ? getScheduledAt(date, time, timezoneOffsetMinutes)
-      : null;
+  const { error } = await supabase.from("student_schedules").insert({
+    student_id: studentId,
+    dia_semana: diaSemana,
+    hora,
+  });
 
-  if (!scheduledAt) return { error: "Completa día y hora." };
-
-  // Generar 8 semanas de turnos
-  const inserts = [];
-  const recurringGroupId = crypto.randomUUID();
-  for (let i = 0; i < 8; i++) {
-    const weekDate = new Date(scheduledAt);
-    weekDate.setDate(weekDate.getDate() + i * 7);
-    inserts.push({
-      trainer_id: user.id,
-      student_id: studentId,
-      scheduled_at: weekDate.toISOString(),
-      notes: i === 0 ? notes : "",
-      duration_minutes: durationMinutes,
-      recurring_group_id: recurringGroupId,
-      recurring_rule: "weekly",
-    });
-  }
-
-  const { error } = await supabase.from("appointments").insert(inserts);
-  if (error) return { error: "No se pudo crear el turno." };
+  if (error) return { error: "No se pudo agregar el horario." };
 
   const { data: trainerProfile } = await supabase
     .from("profiles")
@@ -104,159 +47,103 @@ export async function createAppointment(_prevState: FormState, formData: FormDat
     .eq("id", user.id)
     .single();
 
-  const scheduledLocal = scheduledAt.toLocaleDateString("es-AR", {
-    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
-  });
-
-  const diaLabel = DIAS[parseInt(diaSemanaRaw, 10)] ?? "";
-
   await createNotification({
     userId: studentId,
-    type: "appointment_created",
-    title: `Turno agendado (${inserts.length} sesiones)`,
-    body: `${trainerProfile?.full_name ?? "Tu entrenador"} agendó turnos los ${diaLabel} a las ${time} por las próximas 8 semanas.`,
-    data: { appointmentId: inserts[0].scheduled_at },
+    type: "schedule_updated",
+    title: "Nuevo horario",
+    body: `${trainerProfile?.full_name ?? "Tu entrenador"} agregó un horario: ${DIAS[diaSemana]} a las ${hora}.`,
   });
 
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");
-  return {
-    success: true,
-    message: `${inserts.length} turnos agendados (${diaLabel} ${time}).`,
-    error: null,
-  };
+  return { success: true, message: `Horario agregado: ${DIAS[diaSemana]} ${hora}.`, error: null };
 }
 
-export async function updateAppointment(_prevState: FormState, formData: FormData): Promise<FormState> {
-  const appointmentId = String(formData.get("appointment_id") ?? "");
-  const studentId = String(formData.get("student_id") ?? "");
-  const date = String(formData.get("date") ?? "");
-  const time = String(formData.get("time") ?? "");
-  const notes = String(formData.get("notes") ?? "").trim();
-  const durationRaw = String(formData.get("duration_minutes") ?? "60").trim();
-  const durationMinutes = Math.max(15, parseInt(durationRaw, 10) || 60);
-  const timezoneOffsetMinutes = parseInt(String(formData.get("timezone_offset_minutes") ?? "0"), 10);
-  const applySeries = formData.get("apply_series") === "true";
+export async function updateScheduleEntry(
+  scheduleId: string,
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const diaSemana = parseDiaSemana(formData.get("dia_semana"));
+  const hora = normalizeHora(formData.get("time"));
 
-  if (!appointmentId || !studentId || !date || !time) return { error: "Completa todos los campos." };
+  if (diaSemana == null || !hora) {
+    return { error: "Completá día y hora." };
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-
-  const scheduledAt = getScheduledAt(date, time, timezoneOffsetMinutes);
 
   const { data: existing } = await supabase
-    .from("appointments")
-    .select("recurring_group_id")
-    .eq("id", appointmentId)
-    .single();
-
-  if (existing?.recurring_group_id && applySeries) {
-    const deltaMs = scheduledAt.getTime() - new Date(date + "T" + time).getTime();
-    const { data: series } = await supabase
-      .from("appointments")
-      .select("id, scheduled_at")
-      .eq("recurring_group_id", existing.recurring_group_id);
-
-    for (const s of series ?? []) {
-      const oldDate = new Date(s.scheduled_at);
-      await supabase
-        .from("appointments")
-        .update({
-          scheduled_at: new Date(oldDate.getTime() + deltaMs).toISOString(),
-          duration_minutes: durationMinutes,
-          notes,
-        })
-        .eq("id", s.id);
-    }
-  } else {
-    const { error } = await supabase
-      .from("appointments")
-      .update({ scheduled_at: scheduledAt.toISOString(), notes, duration_minutes: durationMinutes })
-      .eq("id", appointmentId);
-
-    if (error) return { error: "No se pudo actualizar el turno." };
-  }
-
-  const { data: trainerProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-
-  const scheduledLocal = scheduledAt.toLocaleDateString("es-AR", {
-    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
-  });
-
-  await createNotification({
-    userId: studentId,
-    type: "appointment_updated",
-    title: "Turno actualizado",
-    body: `${trainerProfile?.full_name ?? "Tu entrenador"} modificó un turno. Nueva fecha: ${scheduledLocal}.`,
-    data: { appointmentId },
-  });
-
-  revalidatePath("/trainer/agenda");
-  revalidatePath("/trainer");
-  return { success: true, message: "Turno actualizado.", error: null };
-}
-
-export async function updateAppointmentStatus(
-  appointmentId: string,
-  status: "pendiente" | "confirmado" | "cancelado" | "completado"
-) {
-  const supabase = await createClient();
-  const { data: appt } = await supabase
-    .from("appointments")
+    .from("student_schedules")
     .select("student_id")
-    .eq("id", appointmentId)
+    .eq("id", scheduleId)
     .single();
 
-  await supabase.from("appointments").update({ status }).eq("id", appointmentId);
+  const { error } = await supabase
+    .from("student_schedules")
+    .update({ dia_semana: diaSemana, hora })
+    .eq("id", scheduleId);
 
-  if (appt && (status === "cancelado" || status === "completado")) {
+  if (error) return { error: "No se pudo actualizar el horario." };
+
+  if (existing) {
     const { data: trainerProfile } = await supabase
       .from("profiles")
       .select("full_name")
-      .eq("id", appt.student_id)
+      .eq("id", user.id)
       .single();
 
     await createNotification({
-      userId: appt.student_id,
-      type: status === "cancelado" ? "appointment_cancelled" : "appointment_updated",
-      title: status === "cancelado" ? "Turno cancelado" : "Turno completado",
-      body: `Tu turno fue marcado como "${status}" por el entrenador.`,
-      data: { appointmentId },
+      userId: existing.student_id,
+      type: "schedule_updated",
+      title: "Horario actualizado",
+      body: `${trainerProfile?.full_name ?? "Tu entrenador"} cambió un horario: ${DIAS[diaSemana]} a las ${hora}.`,
     });
   }
 
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");
+  return { success: true, message: "Horario actualizado.", error: null };
 }
 
-export async function deleteAppointment(appointmentId: string) {
+export async function moveScheduleEntry(scheduleId: string, diaSemana: number, hora: string) {
+  if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) return;
+  const normalized = normalizeHora(hora);
+  if (!normalized) return;
+
   const supabase = await createClient();
-  const { data: appt } = await supabase
-    .from("appointments")
-    .select("student_id, scheduled_at")
-    .eq("id", appointmentId)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: existing } = await supabase
+    .from("student_schedules")
+    .select("student_id")
+    .eq("id", scheduleId)
     .single();
 
-  await supabase.from("appointments").delete().eq("id", appointmentId);
+  await supabase
+    .from("student_schedules")
+    .update({ dia_semana: diaSemana, hora: normalized })
+    .eq("id", scheduleId);
 
-  if (appt) {
-    const dateStr = new Date(appt.scheduled_at).toLocaleDateString("es-AR", {
-      weekday: "long", day: "numeric", month: "long",
-    });
+  if (existing) {
+    const { data: trainerProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
     await createNotification({
-      userId: appt.student_id,
-      type: "appointment_cancelled",
-      title: "Turno eliminado",
-      body: `El turno del ${dateStr} fue eliminado por el entrenador.`,
-      data: { appointmentId },
+      userId: existing.student_id,
+      type: "schedule_updated",
+      title: "Horario movido",
+      body: `${trainerProfile?.full_name ?? "Tu entrenador"} movió un horario a ${DIAS[diaSemana]} a las ${normalized}.`,
     });
   }
 
@@ -264,51 +151,35 @@ export async function deleteAppointment(appointmentId: string) {
   revalidatePath("/trainer");
 }
 
-export async function deleteRecurringSeries(groupId: string) {
+export async function deleteScheduleEntry(scheduleId: string) {
   const supabase = await createClient();
-  await supabase.from("appointments").delete().eq("recurring_group_id", groupId);
-  revalidatePath("/trainer/agenda");
-  revalidatePath("/trainer");
-}
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
 
-export async function cancelRecurringSeries(groupId: string, futureOnly = true) {
-  const supabase = await createClient();
-  const now = new Date().toISOString();
-  let query = supabase.from("appointments").update({ status: "cancelado" }).eq("recurring_group_id", groupId);
-  if (futureOnly) {
-    query = query.gte("scheduled_at", now);
-  }
-  await query;
-  revalidatePath("/trainer/agenda");
-  revalidatePath("/trainer");
-}
-
-export async function rescheduleAppointment(appointmentId: string, newScheduledAt: string) {
-  const supabase = await createClient();
-  const { data: appt } = await supabase
-    .from("appointments")
-    .select("student_id, duration_minutes")
-    .eq("id", appointmentId)
+  const { data: existing } = await supabase
+    .from("student_schedules")
+    .select("student_id, dia_semana, hora")
+    .eq("id", scheduleId)
     .single();
 
-  if (!appt) throw new Error("Turno no encontrado");
+  await supabase.from("student_schedules").delete().eq("id", scheduleId);
 
-  const newDate = new Date(newScheduledAt);
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado");
+  if (existing) {
+    const { data: trainerProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
 
-  await supabase.from("appointments").update({ scheduled_at: newScheduledAt }).eq("id", appointmentId);
-
-  await createNotification({
-    userId: appt.student_id,
-    type: "appointment_updated",
-    title: "Turno reprogramado",
-    body: `Tu turno fue reprogramado para el ${newDate.toLocaleDateString("es-AR", {
-      weekday: "long", day: "numeric", month: "long",
-      hour: "2-digit", minute: "2-digit",
-    })}.`,
-    data: { appointmentId },
-  });
+    await createNotification({
+      userId: existing.student_id,
+      type: "schedule_updated",
+      title: "Horario eliminado",
+      body: `${trainerProfile?.full_name ?? "Tu entrenador"} eliminó el horario de ${DIAS[existing.dia_semana]} a las ${existing.hora.slice(0, 5)}.`,
+    });
+  }
 
   revalidatePath("/trainer/agenda");
   revalidatePath("/trainer");

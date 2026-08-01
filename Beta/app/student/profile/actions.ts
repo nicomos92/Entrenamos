@@ -67,6 +67,7 @@ export async function logBodyMetric(_prevState: FormState, formData: FormData): 
   const fatRaw = String(formData.get("body_fat_pct") ?? "").trim();
   const muscleRaw = String(formData.get("muscle_mass_kg") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const recordedAt = String(formData.get("recorded_at") ?? "").trim() || undefined;
 
   if (!weightRaw && !heightRaw && !fatRaw && !muscleRaw) {
     return { error: "Completa al menos un dato (peso, altura, grasa o masa muscular)." };
@@ -81,6 +82,7 @@ export async function logBodyMetric(_prevState: FormState, formData: FormData): 
   const { error } = await supabase.from("body_metrics").insert({
     student_id: user.id,
     recorded_by: user.id,
+    recorded_at: recordedAt,
     weight_kg: weightRaw ? Number(weightRaw) : null,
     height_cm: heightRaw ? Number(heightRaw) : null,
     body_fat_pct: fatRaw ? Number(fatRaw) : null,

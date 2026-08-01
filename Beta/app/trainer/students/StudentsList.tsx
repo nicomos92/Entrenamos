@@ -7,6 +7,7 @@ import { SmallStat } from "@/app/components/shared/SmallStat";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 import { normalize } from "@/app/utils/string";
+import { DIAS_SEMANA } from "@/lib/supabase/database.types";
 import type { StudentWithStats } from "@/lib/data/trainer";
 
 export function StudentsList({ students }: { students: StudentWithStats[] }) {
@@ -83,8 +84,8 @@ export function StudentsList({ students }: { students: StudentWithStats[] }) {
                     <p className="font-bold">{student.fullName}</p>
                     <p className="text-sm text-text-muted">
                       {student.routineName ?? "Sin rutina asignada"}
-                      {student.nextAppointment
-                        ? ` · ${new Date(student.nextAppointment).toLocaleString("es-AR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`
+                      {student.nextSchedule
+                        ? ` · ${DIAS_SEMANA[student.nextSchedule.diaSemana].slice(0, 3)} ${student.nextSchedule.hora.slice(0, 5)}`
                         : ""}
                     </p>
                   </div>
@@ -120,13 +121,11 @@ export function StudentsList({ students }: { students: StudentWithStats[] }) {
                   <span className="font-bold text-text-muted">Semana</span>
                   <p className="font-bold text-primary">{student.weeklyCompleted}/5</p>
                 </div>
-                {student.nextAppointment && (
+                {student.nextSchedule && (
                   <div className="hidden text-center text-xs leading-tight xl:block">
                     <span className="font-bold text-text-muted">Próximo</span>
                     <p className="font-bold text-primary">
-                      {new Date(student.nextAppointment).toLocaleDateString("es-AR", {
-                        weekday: "short", hour: "2-digit", minute: "2-digit",
-                      })}
+                      {DIAS_SEMANA[student.nextSchedule.diaSemana].slice(0, 3)} {student.nextSchedule.hora.slice(0, 5)}
                     </p>
                   </div>
                 )}

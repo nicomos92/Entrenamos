@@ -76,8 +76,6 @@ export async function resetDatabase(confirm: string): Promise<{ error?: string; 
   await supabase.from("assignments").delete().in("student_id", ids);
   await supabase.from("body_metrics").delete().in("student_id", ids);
   await supabase.from("student_schedules").delete().in("student_id", ids);
-  await supabase.from("appointments").delete().in("trainer_id", ids);
-  // appointments also FK → students (profile_id), may have been deleted above — safe
   await supabase.from("routines").delete().in("trainer_id", ids);
   await supabase.from("exercises").delete().in("trainer_id", ids);
   await supabase.from("students").delete().in("profile_id", ids);

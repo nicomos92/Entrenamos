@@ -1,129 +1,65 @@
-import { CalendarDays, CalendarX, XCircle } from "lucide-react";
+import { CalendarDays, CalendarX } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 import { SectionHeader } from "@/app/components/shared/SectionHeader";
-import { CancelAppointmentButton } from "@/app/student/agenda/CancelAppointmentButton";
-
-function formatTimeRange(scheduledAt: string, durationMinutes: number) {
-  const start = new Date(scheduledAt);
-  const end = new Date(start.getTime() + durationMinutes * 60000);
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
-  return `${fmt(start)} - ${fmt(end)}`;
-}
+import { DIAS_SEMANA } from "@/lib/supabase/database.types";
 
 export default async function StudentAgendaPage() {
   const { supabase, user } = await requireProfile("student");
 
-  const now = new Date().toISOString();
+  const { data: schedules } = await supabase
+    .from("student_schedules")
+    .select("id, dia_semana, hora")
+    .eq("student_id", user.id)
+    .order("dia_semana", { ascending: true })
+    .order("hora", { ascending: true });
 
-  const [futureAppts, pastAppts] = await Promise.all([
-    supabase
-      .from("appointments")
-      .select("id, scheduled_at, status, notes, duration_minutes, trainer_id, profiles!trainer_id(full_name)")
-      .eq("student_id", user.id)
-      .gte("scheduled_at", now)
-      .order("scheduled_at", { ascending: true }),
-    supabase
-      .from("appointments")
-      .select("id, scheduled_at, status, notes, duration_minutes, trainer_id, profiles!trainer_id(full_name)")
-      .eq("student_id", user.id)
-      .lt("scheduled_at", now)
-      .order("scheduled_at", { ascending: false })
-      .limit(20),
-  ]);
+  const { data: student } = await supabase
+    .from("students")
+    .select("trainer_id")
+    .eq("profile_id", user.id)
+    .single();
 
-  const future = futureAppts.data ?? [];
-  const past = pastAppts.data ?? [];
+  const trainerName = student?.trainer_id
+    ? (await supabase.from("profiles").select("full_name").eq("id", student.trainer_id).single()).data?.full_name
+    : null;
 
   return (
     <section className="space-y-6">
-      <SectionHeader eyebrow="Tus turnos con el entrenador" icon={<CalendarDays size={20} strokeWidth={2.25} />} title="Agenda" />
+      <SectionHeader
+        eyebrow="Tus horarios con el entrenador"
+        icon={<CalendarDays size={20} strokeWidth={2.25} />}
+        title="Agenda semanal"
+      />
 
-      <div>
-        <p className="mb-3 text-sm font-bold uppercase tracking-[0.22em] text-text-muted">Próximos</p>
-        {future.length === 0 ? (
-          <EmptyState
-            description="Tu entrenador te va a agendar un turno pronto."
-            icon={<CalendarX size={26} strokeWidth={2.25} />}
-            title="No tenés turnos agendados"
-          />
-        ) : (
+      {!schedules || schedules.length === 0 ? (
+        <EmptyState
+          description="Tu entrenador te va a cargar los horarios pronto."
+          icon={<CalendarX size={26} strokeWidth={2.25} />}
+          title="Todavía no tenés horarios"
+        />
+      ) : (
+        <>
+          <p className="text-sm text-text-muted">
+            Estos son tus turnos fijos de la semana con{" "}
+            <span className="font-bold text-primary">{trainerName ?? "tu entrenador"}</span>. Cada uno dura 60 minutos.
+          </p>
           <div className="space-y-3">
-            {future.map((appt) => {
-              const trainerName = (appt.profiles as unknown as { full_name: string } | null)?.full_name ?? "Entrenador";
-              return (
-                <article className="glass-card rounded-3xl p-4" key={appt.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-bold">
-                        {new Date(appt.scheduled_at).toLocaleDateString("es-AR", {
-                          weekday: "long",
-                          day: "2-digit",
-                          month: "long",
-                        })}
-                      </p>
-                      <p className="text-sm text-text-muted">
-                        {formatTimeRange(appt.scheduled_at, appt.duration_minutes ?? 60)}
-                      </p>
-                      <p className="mt-1 text-xs text-text-muted">Con {trainerName}</p>
-                      {appt.notes && <p className="mt-1 text-sm text-text-muted">{appt.notes}</p>}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        appt.status === "confirmado"
-                          ? "bg-status-active/10 text-status-active"
-                          : appt.status === "pendiente"
-                          ? "bg-status-attention/10 text-status-attention"
-                          : "bg-text-muted/10 text-text-muted"
-                      }`}>
-                        {appt.status}
-                      </span>
-                      {appt.status !== "cancelado" && appt.status !== "completado" && (
-                        <CancelAppointmentButton appointmentId={appt.id} />
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {past.length > 0 && (
-        <div>
-          <p className="mb-3 text-sm font-bold uppercase tracking-[0.22em] text-text-muted">Anteriores</p>
-          <div className="space-y-3">
-            {past.map((appt) => (
-              <article className="glass-card rounded-3xl p-4" key={appt.id}>
+            {schedules.map((sched) => (
+              <article className="glass-card rounded-3xl p-4" key={sched.id}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-bold">
-                      {new Date(appt.scheduled_at).toLocaleDateString("es-AR", {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "2-digit",
-                      })}
-                    </p>
-                    <p className="text-sm text-text-muted">
-                      {formatTimeRange(appt.scheduled_at, appt.duration_minutes ?? 60)}
-                    </p>
+                    <p className="font-bold">{DIAS_SEMANA[sched.dia_semana]}</p>
+                    <p className="text-sm text-text-muted">Sesión de 60 minutos</p>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                    appt.status === "completado"
-                      ? "bg-status-active/10 text-status-active"
-                      : appt.status === "cancelado"
-                      ? "bg-status-urgent/10 text-status-urgent"
-                      : "bg-text-muted/10 text-text-muted"
-                  }`}>
-                    {appt.status}
+                  <span className="rounded-full bg-secondary/15 px-4 py-1.5 text-sm font-bold text-secondary">
+                    {sched.hora.slice(0, 5)}
                   </span>
                 </div>
               </article>
             ))}
           </div>
-        </div>
+        </>
       )}
     </section>
   );

@@ -34,6 +34,21 @@ export async function getBodyMetrics(supabase: Client, studentId: string): Promi
   }));
 }
 
+export function calcBmi(
+  weightKg: number | null | undefined,
+  heightCm: number | null | undefined
+): { value: number; label: string } | null {
+  if (!weightKg || !heightCm) return null;
+  const bmi = weightKg / ((heightCm / 100) * (heightCm / 100));
+  const value = Math.round(bmi * 10) / 10;
+  let label: string;
+  if (value < 18.5) label = "Bajo peso";
+  else if (value < 25) label = "Normal";
+  else if (value < 30) label = "Sobrepeso";
+  else label = "Obesidad";
+  return { value, label };
+}
+
 export interface MetricTrend {
   latest: number | null;
   deltaFromFirst: number | null;

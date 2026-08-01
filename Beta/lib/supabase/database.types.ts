@@ -5,7 +5,6 @@
 export type Role = "admin" | "trainer" | "student";
 export type StudentStatus = "activo" | "inactivo";
 export type SessionStatus = "completada" | "incompleta";
-export type AppointmentStatus = "pendiente" | "confirmado" | "cancelado" | "completado";
 export type Objetivo = "Hipertrofia" | "Descenso de grasa" | "Fuerza" | "Salud" | "RendimientoDeportivo" | "Preparacion Fisica";
 export type Sexo = "masculino" | "femenino" | "otro";
 
@@ -154,6 +153,11 @@ export interface Database {
           name: string;
           goal: string;
           estimated_minutes: number;
+          status: string;
+          start_date: string | null;
+          end_date: string | null;
+          days: number;
+          start_weekday: number;
           created_at: string;
         };
         Insert: {
@@ -162,12 +166,22 @@ export interface Database {
           name: string;
           goal?: string;
           estimated_minutes?: number;
+          status?: string;
+          start_date?: string | null;
+          end_date?: string | null;
+          days?: number;
+          start_weekday?: number;
           created_at?: string;
         };
         Update: Partial<{
           name: string;
           goal: string;
           estimated_minutes: number;
+          status: string;
+          start_date: string | null;
+          end_date: string | null;
+          days: number;
+          start_weekday: number;
         }>;
         Relationships: [
           {
@@ -190,6 +204,7 @@ export interface Database {
           time: string | null;
           rest: number;
           intensity_pct: number | null;
+          day_number: number;
           created_at: string;
         };
         Insert: {
@@ -202,15 +217,18 @@ export interface Database {
           time?: string | null;
           rest?: number;
           intensity_pct?: number | null;
+          day_number?: number;
           created_at?: string;
         };
         Update: Partial<{
+          exercise_id: string;
           order_index: number;
           sets: number;
           reps: number | null;
           time: string | null;
           rest: number;
           intensity_pct: number | null;
+          day_number: number;
         }>;
         Relationships: [
           {
@@ -236,6 +254,8 @@ export interface Database {
           set_number: number;
           reps: number | null;
           weight_kg: number | null;
+          unit: string;
+          duration_seconds: number | null;
           created_at: string;
         };
         Insert: {
@@ -244,12 +264,16 @@ export interface Database {
           set_number: number;
           reps?: number | null;
           weight_kg?: number | null;
+          unit?: string;
+          duration_seconds?: number | null;
           created_at?: string;
         };
         Update: Partial<{
           set_number: number;
           reps: number | null;
           weight_kg: number | null;
+          unit: string;
+          duration_seconds: number | null;
         }>;
         Relationships: [
           {
@@ -396,54 +420,6 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "exercises";
             referencedColumns: ["id"];
-          },
-        ];
-      };
-      appointments: {
-        Row: {
-          id: string;
-          trainer_id: string;
-          student_id: string;
-          scheduled_at: string;
-          status: AppointmentStatus;
-          notes: string;
-          duration_minutes: number;
-          recurring_group_id: string | null;
-          recurring_rule: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          trainer_id: string;
-          student_id: string;
-          scheduled_at: string;
-          status?: AppointmentStatus;
-          notes?: string;
-          duration_minutes?: number;
-          recurring_group_id?: string | null;
-          recurring_rule?: string | null;
-          created_at?: string;
-        };
-        Update: Partial<{
-          scheduled_at: string;
-          status: AppointmentStatus;
-          notes: string;
-          duration_minutes: number;
-        }>;
-        Relationships: [
-          {
-            foreignKeyName: "appointments_trainer_id_fkey";
-            columns: ["trainer_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "appointments_student_id_fkey";
-            columns: ["student_id"];
-            isOneToOne: false;
-            referencedRelation: "students";
-            referencedColumns: ["profile_id"];
           },
         ];
       };
@@ -649,6 +625,7 @@ export interface Database {
           set_number: number;
           weight_kg: number | null;
           reps: number | null;
+          duration_seconds: number | null;
           rpe: number | null;
           created_at: string;
         };
@@ -658,6 +635,7 @@ export interface Database {
           set_number: number;
           weight_kg?: number | null;
           reps?: number | null;
+          duration_seconds?: number | null;
           rpe?: number | null;
           created_at?: string;
         };
@@ -665,6 +643,7 @@ export interface Database {
           set_number: number;
           weight_kg: number | null;
           reps: number | null;
+          duration_seconds: number | null;
           rpe: number | null;
         }>;
         Relationships: [

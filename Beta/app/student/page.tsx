@@ -2,22 +2,11 @@ import Link from "next/link";
 import { Target, ListChecks, Flame, Play, History, CalendarClock, Scale, ChevronRight, DollarSign, CreditCard } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getActiveAssignment, getWeeklyProgress } from "@/lib/data/student";
-import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
+import { getBodyMetrics, buildTrend, calcBmi } from "@/lib/data/bodyMetrics";
 import { Metric } from "@/app/components/shared/Metric";
 import { TrendSparkline } from "@/app/components/shared/TrendSparkline";
 import { EmptyState } from "@/app/components/shared/EmptyState";
-
-function calcularBMI(weightKg: number, heightCm: number): { value: number; label: string } | null {
-  if (!weightKg || !heightCm) return null;
-  const bmi = weightKg / ((heightCm / 100) * (heightCm / 100));
-  const rounded = Math.round(bmi * 10) / 10;
-  let label: string;
-  if (rounded < 18.5) label = "Bajo peso";
-  else if (rounded < 25) label = "Normal";
-  else if (rounded < 30) label = "Sobrepeso";
-  else label = "Obesidad";
-  return { value: rounded, label };
-}
+import { DIAS_SEMANA } from "@/lib/supabase/database.types";
 
 function getFeeStatus(dueDay: number, paidThisMonth: boolean): { label: string; className: string } {
   if (paidThisMonth) return { label: "Al día", className: "text-status-active" };
@@ -32,7 +21,7 @@ function getFeeStatus(dueDay: number, paidThisMonth: boolean): { label: string; 
 export default async function StudentHomePage() {
   const { supabase, user, profile } = await requireProfile("student");
 
-  const [assignment, weeklyProgress, recentSessions, appointmentsData, metrics, studentData, paymentsData] = await Promise.all([
+  const [assignment, weeklyProgress, recentSessions, schedulesData, metrics, studentData, paymentsData] = await Promise.all([
     getActiveAssignment(supabase, user.id),
     getWeeklyProgress(supabase, user.id),
     supabase
@@ -41,13 +30,17 @@ export default async function StudentHomePage() {
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5),
-    supabase
-      .from("appointments")
-      .select("id, scheduled_at, status, notes")
-      .eq("student_id", user.id)
-      .gte("scheduled_at", new Date().toISOString())
-      .order("scheduled_at", { ascending: true })
-      .limit(3),
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("student_schedules")
+          .select("id, dia_semana, hora")
+          .eq("student_id", user.id)
+          .order("dia_semana", { ascending: true })
+          .order("hora", { ascending: true });
+        return { data: data ?? [] };
+      } catch { return { data: [] }; }
+    })(),
     getBodyMetrics(supabase, user.id),
     supabase
       .from("students")
@@ -62,7 +55,7 @@ export default async function StudentHomePage() {
   ]);
 
   const sessions = recentSessions.data ?? [];
-  const appointments = appointmentsData.data ?? [];
+  const schedules = schedulesData.data ?? [];
   const weightTrend = buildTrend(metrics, "weightKg");
   const latestMetric = metrics[0];
 
@@ -71,9 +64,7 @@ export default async function StudentHomePage() {
   const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
   const paidThisMonth = paymentsList.some((p) => p.period_month === currentMonth);
 
-  const bmiResult = latestMetric?.weightKg && latestMetric?.heightCm
-    ? calcularBMI(latestMetric.weightKg, latestMetric.heightCm)
-    : null;
+  const bmiResult = calcBmi(latestMetric?.weightKg, latestMetric?.heightCm);
 
   return (
     <section className="space-y-6">
@@ -172,25 +163,17 @@ export default async function StudentHomePage() {
         {!latestMetric && <p className="text-sm text-text-muted">Todavía no registraste mediciones.</p>}
       </article>
 
-      {appointments.length > 0 && (
+      {schedules.length > 0 && (
         <article className="glass-card rounded-[1.75rem] p-6">
           <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.24em] text-text-primary">
             <CalendarClock size={14} strokeWidth={2.5} />
-            Próximos turnos
+            Tus horarios
           </p>
           <div className="space-y-2">
-            {appointments.map((appt) => (
-              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={appt.id}>
-                <span className="font-bold">
-                  {new Date(appt.scheduled_at).toLocaleString("es-AR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <span className="text-text-muted">{appt.status}</span>
+            {schedules.map((sched) => (
+              <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={sched.id}>
+                <span className="font-bold">{DIAS_SEMANA[sched.dia_semana]}</span>
+                <span className="text-text-muted">{sched.hora.slice(0, 5)}</span>
               </div>
             ))}
           </div>

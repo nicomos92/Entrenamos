@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isRoutineUsable } from "@/lib/utils/routine";
 import type { FormState } from "@/lib/types/form";
 
 export async function createStudent(_prevState: FormState, formData: FormData): Promise<FormState> {
@@ -15,6 +16,10 @@ export async function createStudent(_prevState: FormState, formData: FormData): 
   const fechaInicio = String(formData.get("fecha_inicio") ?? "").trim() || null;
   const fechaNacimiento = String(formData.get("fecha_nacimiento") ?? "").trim() || null;
   const sexo = String(formData.get("sexo") ?? "").trim() || null;
+  const initialWeightRaw = String(formData.get("initial_weight_kg") ?? "").trim();
+  const initialHeightRaw = String(formData.get("initial_height_cm") ?? "").trim();
+  const initialWeight = initialWeightRaw ? Math.max(0, Number(initialWeightRaw)) : null;
+  const initialHeight = initialHeightRaw ? Math.max(0, Number(initialHeightRaw)) : null;
 
   if (!fullName || !email || !password) {
     return { error: "Completa nombre, email y contraseña." };
@@ -54,6 +59,16 @@ export async function createStudent(_prevState: FormState, formData: FormData): 
   if (insertError) {
     await admin.auth.admin.deleteUser(created.user.id);
     return { error: "El usuario se creó pero no se pudo vincular como alumno. Por favor, reintentá." };
+  }
+
+  if (initialWeight != null || initialHeight != null) {
+    await supabase.from("body_metrics").insert({
+      student_id: created.user.id,
+      recorded_by: user.id,
+      weight_kg: initialWeight,
+      height_cm: initialHeight,
+      notes: "Medición inicial",
+    });
   }
 
   revalidatePath("/trainer/students");
@@ -128,6 +143,18 @@ export async function assignRoutineToStudent(studentId: string, routineId: strin
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: routine } = await supabase
+    .from("routines")
+    .select("status, start_date, end_date")
+    .eq("id", routineId)
+    .eq("trainer_id", user.id)
+    .single();
+
+  if (!routine || !isRoutineUsable(routine)) {
+    revalidatePath(`/trainer/students/${studentId}`);
+    return;
+  }
 
   // Desactivar asignaciones previas y crear la nueva activa.
   await supabase
@@ -204,6 +231,7 @@ export async function logMetricForStudent(
   const fatRaw = String(formData.get("body_fat_pct") ?? "").trim();
   const muscleRaw = String(formData.get("muscle_mass_kg") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const recordedAt = String(formData.get("recorded_at") ?? "").trim() || undefined;
 
   if (!weightRaw && !heightRaw && !fatRaw && !muscleRaw) {
     return { error: "Completa al menos un dato (peso, altura, grasa o masa muscular)." };
@@ -218,6 +246,7 @@ export async function logMetricForStudent(
   const { error } = await supabase.from("body_metrics").insert({
     student_id: studentId,
     recorded_by: user.id,
+    recorded_at: recordedAt,
     weight_kg: weightRaw ? Number(weightRaw) : null,
     height_cm: heightRaw ? Number(heightRaw) : null,
     body_fat_pct: fatRaw ? Number(fatRaw) : null,

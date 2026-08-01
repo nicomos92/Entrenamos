@@ -12,13 +12,27 @@ export interface StudentWithStats {
   note: string;
   routineName: string | null;
   routineId: string | null;
-  nextAppointment: string | null;
+  nextSchedule: { diaSemana: number; hora: string } | null;
+  scheduleToday: number;
   weeklyCompleted: number;
   lastEffort: number | null;
 }
 
 const WEEKLY_GOAL = 5;
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function nextScheduleEntry(
+  entries: { diaSemana: number; hora: string }[]
+): { diaSemana: number; hora: string } | null {
+  if (entries.length === 0) return null;
+  const today = new Date().getDay();
+  return [...entries].sort((a, b) => {
+    const daysA = (a.diaSemana - today + 7) % 7;
+    const daysB = (b.diaSemana - today + 7) % 7;
+    if (daysA !== daysB) return daysA - daysB;
+    return a.hora.localeCompare(b.hora);
+  })[0] ?? null;
+}
 
 export async function getStudentsWithStats(supabase: Client, trainerId: string): Promise<StudentWithStats[]> {
   const { data: students } = await supabase
@@ -32,19 +46,14 @@ export async function getStudentsWithStats(supabase: Client, trainerId: string):
   const profileIds = students.map((s) => s.profile_id);
   const weekAgo = new Date(Date.now() - ONE_WEEK_MS).toISOString();
 
-  const [{ data: profiles }, { data: assignments }, { data: appointments }, { data: sessions }] = await Promise.all([
+  const [{ data: profiles }, { data: assignments }, { data: schedules }, { data: sessions }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, email").in("id", profileIds),
     supabase
       .from("assignments")
       .select("student_id, routine_id, routines(name)")
       .eq("trainer_id", trainerId)
       .eq("active", true),
-    supabase
-      .from("appointments")
-      .select("student_id, scheduled_at")
-      .eq("trainer_id", trainerId)
-      .gte("scheduled_at", new Date().toISOString())
-      .order("scheduled_at", { ascending: true }),
+    supabase.from("student_schedules").select("student_id, dia_semana, hora").in("student_id", profileIds),
     supabase
       .from("sessions")
       .select("student_id, effort, created_at")
@@ -59,12 +68,12 @@ export async function getStudentsWithStats(supabase: Client, trainerId: string):
       { routineId: a.routine_id, routineName: safeGet<{ name: string }>(a.routines)?.name ?? null },
     ])
   );
-  const nextAppointmentMap = new Map<string, string>();
-  for (const appt of appointments ?? []) {
-    if (!nextAppointmentMap.has(appt.student_id)) {
-      nextAppointmentMap.set(appt.student_id, appt.scheduled_at);
-    }
+  const scheduleMap = new Map<string, { diaSemana: number; hora: string }[]>();
+  for (const s of schedules ?? []) {
+    if (!scheduleMap.has(s.student_id)) scheduleMap.set(s.student_id, []);
+    scheduleMap.get(s.student_id)!.push({ diaSemana: s.dia_semana, hora: s.hora });
   }
+  const todayWeekday = new Date().getDay();
   const lastEffortMap = new Map<string, number>();
   const weeklyCountMap = new Map<string, number>();
   for (const session of sessions ?? []) {
@@ -79,6 +88,7 @@ export async function getStudentsWithStats(supabase: Client, trainerId: string):
   return students.map((student) => {
     const profile = profileMap.get(student.profile_id);
     const assignment = assignmentMap.get(student.profile_id);
+    const studentSchedules = scheduleMap.get(student.profile_id) ?? [];
     return {
       profileId: student.profile_id,
       fullName: profile?.full_name ?? "Alumno",
@@ -87,7 +97,8 @@ export async function getStudentsWithStats(supabase: Client, trainerId: string):
       note: student.note,
       routineName: assignment?.routineName ?? null,
       routineId: assignment?.routineId ?? null,
-      nextAppointment: nextAppointmentMap.get(student.profile_id) ?? null,
+      nextSchedule: nextScheduleEntry(studentSchedules),
+      scheduleToday: studentSchedules.filter((s) => s.diaSemana === todayWeekday).length,
       weeklyCompleted: weeklyCountMap.get(student.profile_id) ?? 0,
       lastEffort: lastEffortMap.get(student.profile_id) ?? null,
     };
@@ -110,6 +121,8 @@ export interface RoutineSetConfig {
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
+  unit: "reps" | "time";
+  durationSeconds: number | null;
 }
 
 export interface RoutineWithExercises {
@@ -117,6 +130,11 @@ export interface RoutineWithExercises {
   name: string;
   goal: string;
   estimated_minutes: number;
+  status: "borrador" | "activa";
+  start_date: string | null;
+  end_date: string | null;
+  days: number;
+  start_weekday: number;
   exercises: {
     id: string;
     exercise_id: string;
@@ -126,6 +144,7 @@ export interface RoutineWithExercises {
     time: string | null;
     rest: number;
     intensity_pct: number | null;
+    day_number: number;
     order_index: number;
     routineExerciseSets: RoutineSetConfig[];
   }[];
@@ -134,7 +153,7 @@ export interface RoutineWithExercises {
 export async function getRoutines(supabase: Client, trainerId: string): Promise<RoutineWithExercises[]> {
   const { data: routines } = await supabase
     .from("routines")
-    .select("id, name, goal, estimated_minutes")
+    .select("id, name, goal, estimated_minutes, status, start_date, end_date, days, start_weekday")
     .eq("trainer_id", trainerId)
     .order("created_at", { ascending: false });
 
@@ -142,18 +161,19 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("id, routine_id, exercise_id, sets, reps, time, rest, order_index, intensity_pct, exercises(name)")
+    .select("id, routine_id, exercise_id, sets, reps, time, rest, order_index, intensity_pct, day_number, exercises(name)")
     .in(
       "routine_id",
       routines.map((r) => r.id)
     )
+    .order("day_number", { ascending: true })
     .order("order_index", { ascending: true });
 
   const reIds = (routineExercises ?? []).map((re) => re.id);
   const { data: setsData } = reIds.length > 0
     ? await supabase
         .from("routine_exercise_sets")
-        .select("id, routine_exercise_id, set_number, reps, weight_kg")
+        .select("id, routine_exercise_id, set_number, reps, weight_kg, unit, duration_seconds")
         .in("routine_exercise_id", reIds)
         .order("set_number", { ascending: true })
     : { data: [] };
@@ -166,11 +186,14 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
       setNumber: s.set_number,
       reps: s.reps,
       weightKg: s.weight_kg,
+      unit: s.unit === "time" ? "time" : "reps",
+      durationSeconds: s.duration_seconds,
     });
   }
 
   return routines.map((routine) => ({
     ...routine,
+    status: routine.status === "borrador" ? ("borrador" as const) : ("activa" as const),
     exercises: (routineExercises ?? [])
       .filter((re) => re.routine_id === routine.id)
       .map((re) => ({
@@ -182,30 +205,48 @@ export async function getRoutines(supabase: Client, trainerId: string): Promise<
         time: re.time,
         rest: re.rest,
         intensity_pct: re.intensity_pct,
+        day_number: re.day_number,
         order_index: re.order_index,
         routineExerciseSets: setsByRe[re.id] ?? [],
       })),
   }));
 }
 
-export async function getAppointments(supabase: Client, trainerId: string) {
-  const { data } = await supabase
-    .from("appointments")
-    .select("id, student_id, scheduled_at, status, notes, duration_minutes, recurring_group_id, recurring_rule")
-    .eq("trainer_id", trainerId)
-    .order("scheduled_at", { ascending: true });
+export interface WeeklyScheduleEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  diaSemana: number;
+  hora: string;
+}
 
-  if (!data || data.length === 0) return [];
+export async function getWeeklySchedule(supabase: Client, trainerId: string): Promise<WeeklyScheduleEntry[]> {
+  const { data: students } = await supabase
+    .from("students")
+    .select("profile_id")
+    .eq("trainer_id", trainerId);
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in(
-      "id",
-      data.map((a) => a.student_id)
-    );
+  if (!students || students.length === 0) return [];
+
+  const profileIds = students.map((s) => s.profile_id);
+
+  const [{ data: schedules }, { data: profiles }] = await Promise.all([
+    supabase
+      .from("student_schedules")
+      .select("id, student_id, dia_semana, hora")
+      .in("student_id", profileIds)
+      .order("dia_semana", { ascending: true })
+      .order("hora", { ascending: true }),
+    supabase.from("profiles").select("id, full_name").in("id", profileIds),
+  ]);
 
   const nameMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
 
-  return data.map((appt) => ({ ...appt, studentName: nameMap.get(appt.student_id) ?? "Alumno" }));
+  return (schedules ?? []).map((s) => ({
+    id: s.id,
+    studentId: s.student_id,
+    studentName: nameMap.get(s.student_id) ?? "Alumno",
+    diaSemana: s.dia_semana,
+    hora: s.hora.slice(0, 5),
+  }));
 }

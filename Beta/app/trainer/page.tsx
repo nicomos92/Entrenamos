@@ -1,22 +1,18 @@
 import Link from "next/link";
 import { Users, AlertTriangle, CalendarClock, TrendingUp, Flame, PartyPopper, UserPlus } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
-import { getStudentsWithStats, getAppointments } from "@/lib/data/trainer";
+import { getStudentsWithStats } from "@/lib/data/trainer";
 import { Metric } from "@/app/components/shared/Metric";
 import { IconBadge } from "@/app/components/shared/IconBadge";
 import { EmptyState } from "@/app/components/shared/EmptyState";
 
 export default async function TrainerDashboardPage() {
   const { supabase, user } = await requireProfile("trainer");
-  const [students, appointments] = await Promise.all([
-    getStudentsWithStats(supabase, user.id),
-    getAppointments(supabase, user.id),
-  ]);
+  const students = await getStudentsWithStats(supabase, user.id);
 
   const activeStudents = students.filter((s) => s.status === "activo").length;
   const needsAttention = students.filter((s) => (s.lastEffort ?? 0) >= 5 || s.status === "inactivo");
-  const todayKey = new Date().toDateString();
-  const sessionsToday = appointments.filter((a) => new Date(a.scheduled_at).toDateString() === todayKey).length;
+  const studentsToday = students.reduce((sum, s) => sum + s.scheduleToday, 0);
   const avgAdherence =
     students.length === 0
       ? 0
@@ -36,7 +32,7 @@ export default async function TrainerDashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric icon={<Users size={16} strokeWidth={2.25} />} label="Alumnos activos" value={`${activeStudents}`} />
         <Metric icon={<AlertTriangle size={16} strokeWidth={2.25} />} label="Alertas" value={`${needsAttention.length}`} />
-        <Metric icon={<CalendarClock size={16} strokeWidth={2.25} />} label="Turnos hoy" value={`${sessionsToday}`} />
+        <Metric icon={<CalendarClock size={16} strokeWidth={2.25} />} label="Alumnos hoy" value={`${studentsToday}`} />
         <Metric icon={<TrendingUp size={16} strokeWidth={2.25} />} label="Cumplimiento" value={`${avgAdherence}%`} />
       </div>
 

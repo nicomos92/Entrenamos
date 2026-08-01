@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 interface SetInput {
   weightKg?: number;
   reps?: number;
+  durationSeconds?: number;
   rpe?: number;
 }
 
@@ -91,6 +92,7 @@ export async function finishSession(input: FinishSessionInput) {
       set_number: number;
       weight_kg: number | null;
       reps: number | null;
+      duration_seconds: number | null;
       rpe: number | null;
     }[] = [];
 
@@ -103,6 +105,7 @@ export async function finishSession(input: FinishSessionInput) {
           set_number: i + 1,
           weight_kg: fb.sets[i].weightKg ?? null,
           reps: fb.sets[i].reps ?? null,
+          duration_seconds: fb.sets[i].durationSeconds ?? null,
           rpe: fb.sets[i].rpe ?? null,
         });
       }

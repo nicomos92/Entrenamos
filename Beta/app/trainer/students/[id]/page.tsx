@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Scale, History, ClipboardPlus, Target, User, Cake, Calendar, CalendarClock, CalendarPlus, DollarSign, CreditCard } from "lucide-react";
+import { ArrowLeft, Scale, History, ClipboardPlus, Target, User, Cake, Calendar, CalendarClock, DollarSign, CreditCard } from "lucide-react";
 import { requireProfile } from "@/lib/auth";
 import { getRoutines } from "@/lib/data/trainer";
-import { getBodyMetrics, buildTrend } from "@/lib/data/bodyMetrics";
+import { getBodyMetrics, buildTrend, calcBmi } from "@/lib/data/bodyMetrics";
+import { isRoutineUsable } from "@/lib/utils/routine";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { Metric } from "@/app/components/shared/Metric";
 import { TrendSparkline } from "@/app/components/shared/TrendSparkline";
 import { ActionForm } from "@/app/components/shared/ActionForm";
 import { StudentDetailActions } from "@/app/trainer/students/[id]/StudentDetailActions";
-import { StudentAppointments } from "@/app/trainer/students/[id]/StudentAppointments";
 import { logMetricForStudent, updateStudentProfile, saveFeeConfig, registerPayment } from "@/app/trainer/students/actions";
 import { DIAS_SEMANA } from "@/lib/supabase/database.types";
 import type { StudentSchedule } from "@/lib/supabase/database.types";
@@ -30,16 +30,14 @@ const SEXOS = [
   { value: "otro", label: "Otro" },
 ];
 
-function calcularBMI(weightKg: number, heightCm: number): { value: number; label: string } | null {
-  if (!weightKg || !heightCm) return null;
-  const bmi = weightKg / ((heightCm / 100) * (heightCm / 100));
-  const rounded = Math.round(bmi * 10) / 10;
-  let label: string;
-  if (rounded < 18.5) label = "Bajo peso";
-  else if (rounded < 25) label = "Normal";
-  else if (rounded < 30) label = "Sobrepeso";
-  else label = "Obesidad";
-  return { value: rounded, label };
+function calcularEdad(fecha: string | null): string {
+  if (!fecha) return "-";
+  const nacimiento = new Date(fecha);
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
+  return `${edad} años`;
 }
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,7 +53,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
 
   if (!student) notFound();
 
-  const [{ data: profile }, routines, { data: assignment }, { data: sessions }, metrics, { data: appointments }, { data: payments }] = await Promise.all([
+  const [{ data: profile }, routines, { data: assignment }, { data: sessions }, metrics, { data: payments }] = await Promise.all([
     supabase.from("profiles").select("full_name, email").eq("id", id).single(),
     getRoutines(supabase, user.id),
     supabase
@@ -71,12 +69,6 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       .order("created_at", { ascending: false })
       .limit(5),
     getBodyMetrics(supabase, id),
-    supabase
-      .from("appointments")
-      .select("id, scheduled_at, status, notes, duration_minutes")
-      .eq("student_id", id)
-      .eq("trainer_id", user.id)
-      .order("scheduled_at", { ascending: true }),
     supabase
       .from("payments")
       .select("id, amount, period_month, paid_at, notes")
@@ -128,9 +120,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     return `${edad} años`;
   };
 
-  const bmiResult = latestMetric?.weightKg && latestMetric?.heightCm
-    ? calcularBMI(latestMetric.weightKg, latestMetric.heightCm)
-    : null;
+  const bmiResult = calcBmi(latestMetric?.weightKg, latestMetric?.heightCm);
 
   const currentMonth = new Date().toISOString().slice(0, 7) + "-01";
   const paidThisMonth = payments?.some((p) => p.period_month === currentMonth);
@@ -152,7 +142,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       <StudentDetailActions
         currentRoutineId={assignment?.routine_id ?? null}
         initialNote={student.note}
-        routines={routines.map((r) => ({ id: r.id, name: r.name }))}
+        routines={routines.filter((r) => isRoutineUsable(r)).map((r) => ({ id: r.id, name: r.name }))}
         status={student.status}
         studentId={id}
       />
@@ -214,14 +204,6 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       </article>
 
       <article className="glass-card rounded-3xl p-5">
-        <p className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
-          <CalendarPlus size={14} strokeWidth={2.5} />
-          Turnos
-        </p>
-        <StudentAppointments appointments={appointments ?? []} studentId={id} />
-      </article>
-
-      <article className="glass-card rounded-3xl p-5">
         <div className="mb-3 flex items-center justify-between">
           <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-text-muted">
             <Scale size={14} strokeWidth={2.5} />
@@ -266,6 +248,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
               action={boundLogMetric}
               submitLabel="Guardar medición"
               fields={[
+                { name: "recorded_at", label: "Fecha de medición", type: "date", required: false, defaultValue: new Date().toISOString().slice(0, 10) },
                 { name: "weight_kg", label: "Peso (kg)", type: "number", required: false },
                 { name: "height_cm", label: "Altura (cm)", type: "number", required: false },
                 { name: "body_fat_pct", label: "Grasa corporal (%)", type: "number", required: false },
@@ -275,6 +258,26 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             />
           </div>
         </details>
+
+        {metrics.length > 0 && (
+          <div className="mt-5 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-text-muted">Historial de mediciones</p>
+            {metrics.slice(0, 12).map((entry) => {
+              const bmi = calcBmi(entry.weightKg, entry.heightCm);
+              return (
+                <div className="flex items-center justify-between rounded-2xl bg-white/30 px-4 py-3 text-sm" key={entry.id}>
+                  <span className="text-text-muted">{new Date(entry.recordedAt).toLocaleDateString("es-AR")}</span>
+                  <div className="flex flex-wrap gap-3 text-right">
+                    {entry.weightKg != null && <span className="font-bold">{entry.weightKg} kg</span>}
+                    {bmi && <span className="text-text-muted">IMC {bmi.value}</span>}
+                    {entry.bodyFatPct != null && <span className="text-text-muted">{entry.bodyFatPct}% grasa</span>}
+                    {entry.notes && <span className="text-xs text-text-muted">· {entry.notes}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </article>
 
       <article className="glass-card rounded-3xl p-5">

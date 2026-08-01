@@ -4,6 +4,8 @@ import { ActionForm } from "@/app/components/shared/ActionForm";
 import { IconBadge } from "@/app/components/shared/IconBadge";
 import { createRoutine } from "@/app/trainer/routines/actions";
 
+const DIAS_SEMANA_LABEL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
 export default function NewRoutinePage() {
   return (
     <section className="space-y-5">
@@ -27,6 +29,14 @@ export default function NewRoutinePage() {
             { name: "name", label: "Nombre", type: "text" },
             { name: "goal", label: "Objetivo (ej: Fuerza general)", type: "text", required: false },
             { name: "estimated_minutes", label: "Duración estimada (min)", type: "number", defaultValue: "30" },
+            { name: "days", label: "Cantidad de días (1-7)", type: "number", defaultValue: "1" },
+            {
+              name: "start_weekday",
+              label: "Primer día de la semana",
+              type: "select",
+              defaultValue: "1",
+              options: DIAS_SEMANA_LABEL.map((d, i) => ({ value: String(i), label: d })),
+            },
           ]}
         />
       </div>

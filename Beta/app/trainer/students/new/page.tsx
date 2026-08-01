@@ -48,6 +48,8 @@ export default function NewStudentPage() {
             { name: "sexo", label: "Sexo", type: "select", required: false, placeholder: "Seleccionar...", options: SEXOS },
             { name: "objetivo", label: "Objetivo", type: "select", required: false, placeholder: "Seleccionar...", options: OBJETIVOS },
             { name: "fecha_inicio", label: "Fecha de inicio", type: "date", required: false },
+            { name: "initial_weight_kg", label: "Peso inicial (kg)", type: "number", required: false },
+            { name: "initial_height_cm", label: "Altura inicial (cm)", type: "number", required: false },
             { name: "note", label: "Nota (opcional)", type: "textarea", required: false },
           ]}
         />
