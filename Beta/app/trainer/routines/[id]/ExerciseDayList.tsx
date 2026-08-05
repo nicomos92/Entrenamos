@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { reorderExercises } from "@/app/trainer/routines/actions";
 import { ExerciseItem } from "@/app/trainer/routines/[id]/ExerciseItem";
 import type { RoutineExerciseData } from "@/app/trainer/routines/[id]/EditExerciseForm";
@@ -32,6 +32,10 @@ export function ExerciseDayList({
 }) {
   const [order, setOrder] = useState<DayItem[]>(items);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setOrder(items);
+  }, [items]);
 
   const move = (index: number, dir: -1 | 1) => {
     const target = index + dir;
