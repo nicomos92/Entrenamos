@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/trainer/import", label: "Importar", icon: "Upload" },
   { href: "/trainer/messages", label: "Mensajes", icon: "MessageCircle" },
   { href: "/trainer/settings", label: "Config", icon: "Settings2" },
+  { href: "/ayuda", label: "Ayuda", icon: "CircleHelp" },
 ];
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save, X, Dumbbell, Calculator } from "lucide-react";
 import { updateExerciseInRoutine } from "@/app/trainer/routines/actions";
 import { ExerciseSetsEditor, type SetEditorRow } from "@/app/trainer/routines/[id]/ExerciseSetsEditor";
+import { formatDuration } from "@/lib/duration";
 
 interface Exercise {
   id: string;
@@ -46,6 +47,7 @@ export function EditExerciseForm({
   const boundAction = updateExerciseInRoutine.bind(null, routineId);
   const [selectedExerciseId, setSelectedExerciseId] = useState(exercise.exerciseId);
   const [intensityPct, setIntensityPct] = useState(exercise.intensityPct != null ? String(exercise.intensityPct) : "");
+  const [rest, setRest] = useState(String(exercise.rest));
   const [rows, setRows] = useState<SetEditorRow[]>(() => {
     if (exercise.setsConfig.length > 0) {
       return exercise.setsConfig.map((s) => ({
@@ -120,14 +122,20 @@ export function EditExerciseForm({
       {days === 1 && <input name="day_number" type="hidden" value="1" />}
 
       <div className="grid grid-cols-2 gap-3">
-        <input
-          className="field-input rounded-3xl"
-          name="rest"
-          placeholder="Descanso (seg)"
-          type="number"
-          min={0}
-          defaultValue={exercise.rest}
-        />
+        <div>
+          <input
+            className="field-input rounded-3xl"
+            name="rest"
+            onChange={(e) => setRest(e.target.value)}
+            placeholder="Descanso (seg)"
+            type="number"
+            min={0}
+            value={rest}
+          />
+          {rest && (
+            <p className="mt-1 text-xs font-bold text-primary">Equivale a: {formatDuration(Number(rest))}</p>
+          )}
+        </div>
         <input className="field-input rounded-3xl" name="time" placeholder="Tiempo (ej: 45s)" type="text" defaultValue={exercise.time ?? ""} />
       </div>
 

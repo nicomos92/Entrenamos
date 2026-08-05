@@ -3,7 +3,10 @@ import { TopBar } from "@/app/components/TopBar";
 import { Sidebar } from "@/app/components/Sidebar";
 import type { NavItem } from "@/app/components/SectionNav";
 
-const NAV_ITEMS: NavItem[] = [{ href: "/admin", label: "Entrenadores", icon: "Users" }];
+const NAV_ITEMS: NavItem[] = [
+  { href: "/admin", label: "Entrenadores", icon: "Users" },
+  { href: "/ayuda", label: "Ayuda", icon: "CircleHelp" },
+];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireProfile("admin");

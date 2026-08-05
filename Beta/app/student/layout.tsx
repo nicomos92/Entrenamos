@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/student/summary", label: "Resumen", icon: "BarChart3" },
   { href: "/student/messages", label: "Mensajes", icon: "MessageCircle" },
   { href: "/student/profile", label: "Perfil", icon: "User" },
+  { href: "/ayuda", label: "Ayuda", icon: "CircleHelp" },
 ];
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {

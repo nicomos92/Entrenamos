@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { SectionNav, type NavItem } from "@/app/components/SectionNav";
+import { BrandMark } from "@/app/components/BrandMark";
 
 interface SidebarProps {
   name: string;
@@ -21,9 +22,7 @@ export function Sidebar({ name, subtitle, logoUrl, items }: SidebarProps) {
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between py-8 lg:flex">
       <div>
         <div className="flex items-center gap-3 px-3">
-          <div className="grid size-10 place-items-center rounded-xl bg-soft text-sm font-black text-primary shadow-soft">
-            EN
-          </div>
+          <BrandMark className="size-10 shrink-0 rounded-xl shadow-soft" />
           <div>
             <p className="text-lg font-black tracking-tight text-primary">EntrenaMOS</p>
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-text-muted">{subtitle}</p>

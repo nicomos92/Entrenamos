@@ -62,7 +62,7 @@ export function SectionNav({ items, variant = "bottom" }: { items: NavItem[]; va
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[440px] border-t border-white/50 bg-white/80 px-3 py-1.5 backdrop-blur-xl transition-all lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[440px] border-t border-white/50 bg-white/80 px-3 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-xl transition-all lg:hidden">
       <div className="relative grid gap-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const Icon = typeof item.icon === "string" ? resolveIcon(item.icon) : item.icon;

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDuration } from "@/lib/duration";
+
 export interface SetEditorRow {
   unit: "reps" | "time";
   reps: string;
@@ -81,27 +83,34 @@ export function ExerciseSetsEditor({ rows, onRowsChange }: Props) {
                 />
               </div>
             ) : (
-              <div className="mt-2 flex gap-3">
-                <input
-                  className="field-input w-full rounded-2xl py-1.5 text-sm"
-                  min={1}
-                  name={`duration_${i}`}
-                  onChange={(e) => updateRow(i, { duration: e.target.value })}
-                  placeholder="Segundos (ej: 45)"
-                  type="number"
-                  value={row.duration}
-                />
-                <input
-                  className="field-input w-full rounded-2xl py-1.5 text-sm"
-                  min={0}
-                  name={`weight_${i}`}
-                  onChange={(e) => updateRow(i, { weight: e.target.value })}
-                  placeholder="Peso (kg)"
-                  step={0.5}
-                  type="number"
-                  value={row.weight}
-                />
-              </div>
+              <>
+                <div className="mt-2 flex gap-3">
+                  <input
+                    className="field-input w-full rounded-2xl py-1.5 text-sm"
+                    min={1}
+                    name={`duration_${i}`}
+                    onChange={(e) => updateRow(i, { duration: e.target.value })}
+                    placeholder="Segundos (ej: 45)"
+                    type="number"
+                    value={row.duration}
+                  />
+                  <input
+                    className="field-input w-full rounded-2xl py-1.5 text-sm"
+                    min={0}
+                    name={`weight_${i}`}
+                    onChange={(e) => updateRow(i, { weight: e.target.value })}
+                    placeholder="Peso (kg)"
+                    step={0.5}
+                    type="number"
+                    value={row.weight}
+                  />
+                </div>
+                {row.duration && (
+                  <p className="mt-1 text-xs font-bold text-primary">
+                    Equivale a: {formatDuration(Number(row.duration))}
+                  </p>
+                )}
+              </>
             )}
           </div>
         ))}

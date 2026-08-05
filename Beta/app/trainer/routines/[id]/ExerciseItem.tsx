@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Dumbbell } from "lucide-react";
+import { Pencil, Dumbbell, ChevronUp, ChevronDown } from "lucide-react";
 import { DeleteButton } from "@/app/components/shared/DeleteButton";
 import { removeExerciseFromRoutine } from "@/app/trainer/routines/actions";
 import { EditExerciseForm, type RoutineExerciseData } from "@/app/trainer/routines/[id]/EditExerciseForm";
+import { formatDuration } from "@/lib/duration";
 
 interface ExerciseOption {
   id: string;
@@ -18,11 +19,19 @@ export function ExerciseItem({
   re,
   exercises,
   days,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
 }: {
   routineId: string;
   re: RoutineExerciseData & { name: string; rm: number | null };
   exercises: ExerciseOption[];
   days: number;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -30,7 +39,7 @@ export function ExerciseItem({
     if (re.setsConfig.length > 0) {
       return re.setsConfig
         .map((s) => {
-          if (s.unit === "time") return `S${s.setNumber}: ${s.durationSeconds ?? "-"}s`;
+          if (s.unit === "time") return `S${s.setNumber}: ${formatDuration(s.durationSeconds)}`;
           let label = `S${s.setNumber}: ${s.reps ?? "-"} reps`;
           if (s.weightKg != null) label += ` @ ${s.weightKg}kg`;
           return label;
@@ -59,7 +68,7 @@ export function ExerciseItem({
       <div>
         <p className="font-bold">{re.name}</p>
         <p className="text-xs text-text-muted">
-          {formatSets()} · descanso {re.rest}s
+          {formatSets()} · descanso {formatDuration(re.rest)}
           {re.intensityPct != null && ` · ${re.intensityPct}%`}
         </p>
         {re.rm && (
@@ -70,6 +79,26 @@ export function ExerciseItem({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-col">
+          <button
+            aria-label="Subir ejercicio"
+            className="grid size-6 place-items-center rounded-md text-text-muted transition hover:bg-white/50 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+            type="button"
+          >
+            <ChevronUp size={15} strokeWidth={2.5} />
+          </button>
+          <button
+            aria-label="Bajar ejercicio"
+            className="grid size-6 place-items-center rounded-md text-text-muted transition hover:bg-white/50 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+            type="button"
+          >
+            <ChevronDown size={15} strokeWidth={2.5} />
+          </button>
+        </div>
         <button
           className="inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-3 py-1.5 text-xs font-bold text-secondary transition hover:bg-secondary/20"
           onClick={() => setEditing(true)}

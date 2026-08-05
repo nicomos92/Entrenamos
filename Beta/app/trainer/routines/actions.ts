@@ -251,6 +251,20 @@ export async function removeExerciseFromRoutine(routineId: string, routineExerci
   revalidatePath(`/trainer/routines/${routineId}`);
 }
 
+export async function reorderExercises(routineId: string, dayNumber: number, orderedIds: string[]) {
+  const supabase = await createClient();
+  for (let i = 0; i < orderedIds.length; i++) {
+    await supabase
+      .from("routine_exercises")
+      .update({ order_index: i })
+      .eq("id", orderedIds[i])
+      .eq("routine_id", routineId)
+      .eq("day_number", dayNumber);
+  }
+  revalidatePath(`/trainer/routines/${routineId}`);
+  revalidatePath("/trainer/routines");
+}
+
 export async function duplicateRoutine(routineId: string) {
   const supabase = await createClient();
 

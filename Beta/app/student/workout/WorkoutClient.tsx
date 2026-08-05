@@ -5,6 +5,7 @@ import { Repeat, Timer, Gauge, CheckCircle2, ArrowRight, Star, ImageIcon, Video,
 import { Metric } from "@/app/components/shared/Metric";
 import { finishSession } from "@/app/student/workout/actions";
 import type { AssignedRoutine } from "@/lib/data/student";
+import { formatDuration } from "@/lib/duration";
 
 interface SetFeedback {
   weightKg: string;
@@ -342,7 +343,7 @@ export function WorkoutClient({ assignment, todayDay }: { assignment: AssignedRo
       return exercise.setsConfig
         .map((s) => {
           if (s.unit === "time") {
-            const base = `S${s.setNumber}: ${s.durationSeconds ?? "-"}s`;
+            const base = `S${s.setNumber}: ${formatDuration(s.durationSeconds)}`;
             return s.weightKg != null ? `${base} @ ${s.weightKg}kg` : base;
           }
           let label = `S${s.setNumber}: ${s.reps ?? "-"}`;
@@ -459,7 +460,7 @@ export function WorkoutClient({ assignment, todayDay }: { assignment: AssignedRo
 
             <div className="grid grid-cols-2 gap-3 p-5">
               <Metric icon={<Repeat size={16} strokeWidth={2.25} />} label="Series" value={`${exercise.sets}`} />
-              <Metric icon={<Timer size={16} strokeWidth={2.25} />} label="Descanso" value={`${exercise.rest} seg`} />
+              <Metric icon={<Timer size={16} strokeWidth={2.25} />} label="Descanso" value={formatDuration(exercise.rest)} />
             </div>
 
             <div className="px-5 pb-3">
@@ -492,7 +493,7 @@ export function WorkoutClient({ assignment, todayDay }: { assignment: AssignedRo
                         <span key={i}>
                           #{i + 1}:{" "}
                           {unit === "time"
-                            ? `${s.durationSeconds || "-"}s${s.weightKg ? ` @ ${s.weightKg}kg` : ""}`
+                            ? `${formatDuration(s.durationSeconds ? Number(s.durationSeconds) : null)}${s.weightKg ? ` @ ${s.weightKg}kg` : ""}`
                             : `${s.weightKg || "-"} kg × ${s.reps || "-"} reps`}
                         </span>
                       );

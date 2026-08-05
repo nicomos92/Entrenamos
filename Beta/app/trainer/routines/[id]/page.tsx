@@ -7,7 +7,7 @@ import { DeleteButton } from "@/app/components/shared/DeleteButton";
 import { ActionForm } from "@/app/components/shared/ActionForm";
 import { deleteRoutine, updateRoutine, publishRoutine } from "@/app/trainer/routines/actions";
 import { AddExerciseForm } from "@/app/trainer/routines/[id]/AddExerciseForm";
-import { ExerciseItem } from "@/app/trainer/routines/[id]/ExerciseItem";
+import { ExerciseDayList } from "@/app/trainer/routines/[id]/ExerciseDayList";
 import { DuplicateButton, PausarButton } from "@/app/trainer/routines/[id]/RoutineActions";
 
 const DIAS_SEMANA_LABEL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -179,38 +179,34 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
                   {dayExercises.length === 0 ? (
                     <p className="text-xs text-text-muted">Sin ejercicios en este día.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {dayExercises.map((re) => {
+                    <ExerciseDayList
+                      days={days}
+                      dayNumber={day}
+                      exercises={exerciseOptions}
+                      items={dayExercises.map((re) => {
                         const ex = re.exercises as unknown as { name: string; focus: string; rm: number | null } | null;
-                        return (
-                          <ExerciseItem
-                            days={days}
-                            exercises={exerciseOptions}
-                            key={re.id}
-                            re={{
-                              id: re.id,
-                              exerciseId: re.exercise_id,
-                              name: ex?.name ?? "Ejercicio",
-                              rm: ex?.rm ?? null,
-                              sets: re.sets,
-                              reps: re.reps,
-                              time: re.time,
-                              rest: re.rest,
-                              intensityPct: re.intensity_pct,
-                              dayNumber: re.day_number ?? 1,
-                              setsConfig: (setsByRe[re.id] ?? []).map((s) => ({
-                                setNumber: s.set_number,
-                                reps: s.reps,
-                                weightKg: s.weight_kg,
-                                unit: s.unit === "time" ? ("time" as const) : ("reps" as const),
-                                durationSeconds: s.duration_seconds,
-                              })),
-                            }}
-                            routineId={id}
-                          />
-                        );
+                        return {
+                          id: re.id,
+                          exerciseId: re.exercise_id,
+                          name: ex?.name ?? "Ejercicio",
+                          rm: ex?.rm ?? null,
+                          sets: re.sets,
+                          reps: re.reps,
+                          time: re.time,
+                          rest: re.rest,
+                          intensityPct: re.intensity_pct,
+                          dayNumber: re.day_number ?? 1,
+                          setsConfig: (setsByRe[re.id] ?? []).map((s) => ({
+                            setNumber: s.set_number,
+                            reps: s.reps,
+                            weightKg: s.weight_kg,
+                            unit: s.unit === "time" ? ("time" as const) : ("reps" as const),
+                            durationSeconds: s.duration_seconds,
+                          })),
+                        };
                       })}
-                    </div>
+                      routineId={id}
+                    />
                   )}
                 </div>
               );
